@@ -138,7 +138,11 @@ async function getAccessToken(): Promise<string | null> {
 }
 
 // Start periodic token refresh if credentials are configured
-if (process.env.GOOGLE_PRIVATE_KEY) {
+let tokenRefreshScheduled = false;
+
+if (process.env.GOOGLE_PRIVATE_KEY && !tokenRefreshScheduled) {
+    tokenRefreshScheduled = true;
+
     getAccessToken().catch((error) => {
         errorLog("Failed to initialize Google Cloud authentication:", error);
     });

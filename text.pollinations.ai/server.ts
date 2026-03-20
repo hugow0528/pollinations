@@ -231,8 +231,11 @@ function sendContentResponse(c: Context, completion: ChatCompletion): Response {
 
     const audio = message.audio as Record<string, unknown> | undefined;
     if (audio?.data) {
+        if (typeof audio.data !== "string") {
+            throw new Error("Invalid audio data: expected base64 string");
+        }
         c.header("Content-Type", "audio/mpeg");
-        return c.body(Buffer.from(audio.data as string, "base64"));
+        return c.body(Buffer.from(audio.data, "base64"));
     }
 
     if (message.content) {

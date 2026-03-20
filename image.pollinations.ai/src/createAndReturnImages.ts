@@ -22,6 +22,7 @@ import {
 import type { ImageParams } from "./params.ts";
 import type { ProgressManager } from "./progressBar.ts";
 import { sanitizeString } from "./translateIfNecessary.ts";
+import { getErrorMessage } from "./util.ts";
 import {
     analyzeImageSafety,
     analyzeTextSafety,
@@ -219,7 +220,10 @@ export const callSelfHostedServer = async (
                 body: JSON.stringify(body),
             });
         } catch (error) {
-            logError(`Fetch failed for ${safeParams.model}:`, error.message);
+            logError(
+                `Fetch failed for ${safeParams.model}:`,
+                getErrorMessage(error),
+            );
             logError("Request body:", JSON.stringify(body, null, 2));
             throw error;
         }
@@ -511,7 +515,10 @@ async function _callCloudflareDreamshaper(
                 const responseText = await error.response.text();
                 logError("Dreamshaper response text:", responseText);
             } catch (textError) {
-                logError("Could not get response text:", textError.message);
+                logError(
+                    "Could not get response text:",
+                    getErrorMessage(textError),
+                );
             }
         }
         throw error;
@@ -763,15 +770,20 @@ const callAzureGPTImageWithEndpoint = async (
                     formData.append("image[]", imageBlob, `image${extension}`);
                 } catch (error) {
                     // More specific error handling for image processing
-                    logError(`Error processing image ${i + 1}:`, error.message);
+                    logError(
+                        `Error processing image ${i + 1}:`,
+                        getErrorMessage(error),
+                    );
                     throw new Error(
-                        `Failed to process image: ${error.message}`,
+                        `Failed to process image: ${getErrorMessage(error)}`,
                     );
                 }
             }
         } catch (error) {
             logError("Error processing image for editing:", error);
-            throw new Error(`Failed to process image: ${error.message}`);
+            throw new Error(
+                `Failed to process image: ${getErrorMessage(error)}`,
+            );
         }
 
         // Add other parameters
@@ -981,10 +993,15 @@ const generateImage = async (
             } catch (error) {
                 logError(
                     "Azure GPT Image generation or safety check failed:",
-                    error.message,
+                    getErrorMessage(error),
                 );
                 await logGptImageError(prompt, safeParams, userInfo, error);
-                progress.updateBar(requestId, 100, "Error", error.message);
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1030,10 +1047,15 @@ const generateImage = async (
             } catch (error) {
                 logError(
                     "Vertex AI Gemini image generation or safety check failed:",
-                    error.message,
+                    getErrorMessage(error),
                 );
                 await logGptImageError(prompt, safeParams, userInfo, error);
-                progress.updateBar(requestId, 100, "Error", error.message);
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1056,10 +1078,15 @@ const generateImage = async (
             } catch (error) {
                 logError(
                     "Azure Flux Kontext generation failed:",
-                    error.message,
+                    getErrorMessage(error),
                 );
                 await logGptImageError(prompt, safeParams, userInfo, error);
-                progress.updateBar(requestId, 100, "Error", error.message);
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1073,8 +1100,16 @@ const generateImage = async (
                     requestId,
                 );
             } catch (error) {
-                logError("Seedream 5.0 generation failed:", error.message);
-                progress.updateBar(requestId, 100, "Error", error.message);
+                logError(
+                    "Seedream 5.0 generation failed:",
+                    getErrorMessage(error),
+                );
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1091,9 +1126,14 @@ const generateImage = async (
             } catch (error) {
                 logError(
                     "Seedream 4.0 (legacy) generation failed:",
-                    error.message,
+                    getErrorMessage(error),
                 );
-                progress.updateBar(requestId, 100, "Error", error.message);
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1110,9 +1150,14 @@ const generateImage = async (
             } catch (error) {
                 logError(
                     "Seedream 4.5 Pro (legacy) generation failed:",
-                    error.message,
+                    getErrorMessage(error),
                 );
-                progress.updateBar(requestId, 100, "Error", error.message);
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1126,8 +1171,16 @@ const generateImage = async (
                     requestId,
                 );
             } catch (error) {
-                logError("Flux Klein generation failed:", error.message);
-                progress.updateBar(requestId, 100, "Error", error.message);
+                logError(
+                    "Flux Klein generation failed:",
+                    getErrorMessage(error),
+                );
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1141,8 +1194,16 @@ const generateImage = async (
                     requestId,
                 );
             } catch (error) {
-                logError("Pruna p-image generation failed:", error.message);
-                progress.updateBar(requestId, 100, "Error", error.message);
+                logError(
+                    "Pruna p-image generation failed:",
+                    getErrorMessage(error),
+                );
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
@@ -1158,9 +1219,14 @@ const generateImage = async (
             } catch (error) {
                 logError(
                     "Pruna p-image-edit generation failed:",
-                    error.message,
+                    getErrorMessage(error),
                 );
-                progress.updateBar(requestId, 100, "Error", error.message);
+                progress.updateBar(
+                    requestId,
+                    100,
+                    "Error",
+                    getErrorMessage(error),
+                );
                 throw error;
             }
         }
