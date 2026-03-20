@@ -1,13 +1,13 @@
-import fetch from "node-fetch";
-import fs from "fs/promises";
 import debug from "debug";
 import jwt from "jsonwebtoken";
+import fetch from "node-fetch";
 
 const log = debug("pollinations:google-auth");
 const errorLog = debug("pollinations:google-auth:error");
 
 // Types
 interface ServiceAccountKey {
+    type: string;
     private_key: string;
     private_key_id: string;
     client_email: string;
@@ -45,50 +45,34 @@ let gcloudAccessToken = "";
 let tokenExpiration: number | null = null;
 
 /**
- * Refreshes the Google Cloud access token using a service account key file
+ * Refreshes the Google Cloud access token using environment variables
  * @returns A promise that resolves to the access token or null if authentication fails
  */
 async function refreshGcloudAccessToken(): Promise<string | null> {
     try {
-        // Get the path to the service account key file
-        const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        log("GOOGLE_APPLICATION_CREDENTIALS path:", credentialsPath);
+        const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+        const privateKeyId = process.env.GOOGLE_PRIVATE_KEY_ID;
+        const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        const projectId = process.env.GOOGLE_PROJECT_ID;
 
-        if (!credentialsPath) {
+        if (!privateKey || !privateKeyId || !clientEmail) {
             errorLog(
-                "GOOGLE_APPLICATION_CREDENTIALS environment variable not set",
+                "Missing required Google Cloud credentials. Need: GOOGLE_PRIVATE_KEY, GOOGLE_PRIVATE_KEY_ID, GOOGLE_CLIENT_EMAIL",
             );
             return null;
         }
 
-        // Read and parse the service account key file
-        log("Reading service account key file...");
-        let keyFileContent: string;
-        try {
-            keyFileContent = await fs.readFile(credentialsPath, "utf8");
-        } catch (fileError) {
-            errorLog("Failed to read service account key file:", fileError);
-            return null;
-        }
+        const keyData: ServiceAccountKey = {
+            type: "service_account",
+            project_id: projectId || "",
+            private_key_id: privateKeyId,
+            private_key: privateKey.replace(/\\n/g, "\n"),
+            client_email: clientEmail,
+        };
 
-        let keyData: ServiceAccountKey;
-        try {
-            keyData = JSON.parse(keyFileContent);
-        } catch (parseError) {
-            errorLog("Failed to parse service account key file:", parseError);
-            return null;
-        }
-
-        log("Service account key file loaded successfully");
-        log("Project ID:", keyData.project_id);
-        log("Client email:", keyData.client_email);
-
-        // Generate a JWT token
-        log("Generating JWT token...");
         let token: string | null;
         try {
             token = await generateJwtToken(keyData);
-            log("JWT token generated successfully");
         } catch (jwtError) {
             errorLog("Failed to generate JWT token:", jwtError);
             return null;
@@ -99,12 +83,9 @@ async function refreshGcloudAccessToken(): Promise<string | null> {
             return null;
         }
 
-        // Exchange the JWT token for an access token
-        log("Exchanging JWT for access token...");
         let accessToken: string | null;
         try {
             accessToken = await exchangeJwtForAccessToken(token);
-            log("Access token received successfully");
         } catch (tokenError) {
             errorLog("Failed to exchange JWT for access token:", tokenError);
             return null;
@@ -123,9 +104,10 @@ async function refreshGcloudAccessToken(): Promise<string | null> {
  * @param keyData - The parsed service account key data
  * @returns A promise that resolves to the JWT token or null if generation fails
  */
-async function generateJwtToken(keyData: ServiceAccountKey): Promise<string | null> {
+async function generateJwtToken(
+    keyData: ServiceAccountKey,
+): Promise<string | null> {
     try {
-        // Validate required fields in keyData
         if (
             !keyData.private_key ||
             !keyData.private_key_id ||
@@ -135,39 +117,29 @@ async function generateJwtToken(keyData: ServiceAccountKey): Promise<string | nu
             return null;
         }
 
-        // Create the JWT header
         const header: JWTHeader = {
             alg: "RS256",
             typ: "JWT",
             kid: keyData.private_key_id,
         };
-        // Log only non-sensitive header fields
-        log("JWT header created with algorithm:", header.alg, "and key ID length:", header.kid.length);
 
-        // Current time in seconds
         const now = Math.floor(Date.now() / 1000);
 
-        // Create the JWT payload
         const payload: JWTPayload = {
             iss: keyData.client_email,
             sub: keyData.client_email,
             aud: "https://oauth2.googleapis.com/token",
             iat: now,
-            exp: now + 3600, // Token expires in 1 hour
+            exp: now + 3600,
             scope: "https://www.googleapis.com/auth/cloud-platform",
         };
-        // Log only non-sensitive payload fields
-        log("JWT payload created with issuer:", payload.iss, "expires in:", payload.exp - payload.iat, "seconds");
 
-        // Sign the JWT with the private key
-        log("Signing JWT with private key...");
         let signedJwt: string;
         try {
             signedJwt = jwt.sign(payload, keyData.private_key, {
                 header: header,
                 algorithm: "RS256",
             });
-            log("JWT signed successfully, length:", signedJwt.length);
         } catch (signError) {
             errorLog("Failed to sign JWT:", signError);
             return null;
@@ -175,7 +147,10 @@ async function generateJwtToken(keyData: ServiceAccountKey): Promise<string | nu
 
         return signedJwt;
     } catch (error) {
-        errorLog("Error generating JWT token:", error instanceof Error ? error.message : error);
+        errorLog(
+            "Error generating JWT token:",
+            error instanceof Error ? error.message : error,
+        );
         return null;
     }
 }
@@ -185,10 +160,10 @@ async function generateJwtToken(keyData: ServiceAccountKey): Promise<string | nu
  * @param jwtToken - The JWT token
  * @returns A promise that resolves to the access token or null if exchange fails
  */
-async function exchangeJwtForAccessToken(jwtToken: string): Promise<string | null> {
+async function exchangeJwtForAccessToken(
+    jwtToken: string,
+): Promise<string | null> {
     try {
-        // Make a request to the Google OAuth token endpoint
-        log("Making request to Google OAuth token endpoint...");
         let response: any;
         try {
             response = await fetch("https://oauth2.googleapis.com/token", {
@@ -209,11 +184,8 @@ async function exchangeJwtForAccessToken(jwtToken: string): Promise<string | nul
             return null;
         }
 
-        log("Response status:", response.status, response.statusText);
-
         if (!response.ok) {
             const errorText = await response.text();
-            log("Error response body:", errorText);
             errorLog(
                 `Failed to exchange JWT for access token: ${response.status} ${response.statusText} - ${errorText}`,
             );
@@ -233,10 +205,12 @@ async function exchangeJwtForAccessToken(jwtToken: string): Promise<string | nul
             return null;
         }
 
-        log("Token response received with expires_in:", data.expires_in);
         return data.access_token;
     } catch (error) {
-        errorLog("Error exchanging JWT for access token:", error instanceof Error ? error.message : error);
+        errorLog(
+            "Error exchanging JWT for access token:",
+            error instanceof Error ? error.message : error,
+        );
         return null;
     }
 }
@@ -247,13 +221,11 @@ async function exchangeJwtForAccessToken(jwtToken: string): Promise<string | nul
  */
 async function getGcloudAccessToken(): Promise<string | null> {
     try {
-        // If we don't have a token or it's expired, refresh it
         if (
             !gcloudAccessToken ||
             !tokenExpiration ||
             Date.now() >= tokenExpiration
         ) {
-            log("Token missing or expired, refreshing...");
             const newToken = await refreshGcloudAccessToken();
             if (newToken) {
                 gcloudAccessToken = newToken;
@@ -266,11 +238,6 @@ async function getGcloudAccessToken(): Promise<string | null> {
             } else {
                 return null;
             }
-        } else {
-            log(
-                "Using existing token, expires at:",
-                new Date(tokenExpiration).toISOString(),
-            );
         }
         return gcloudAccessToken;
     } catch (error) {
@@ -286,17 +253,10 @@ async function getGcloudAccessToken(): Promise<string | null> {
  */
 function initGoogleCloudAuth(): AuthInstance {
     try {
-        log("Initializing Google Cloud authentication...");
-        log("Environment variables:");
-        log(
-            "- GOOGLE_APPLICATION_CREDENTIALS:",
-            process.env.GOOGLE_APPLICATION_CREDENTIALS,
-        );
-        log("- GCLOUD_PROJECT_ID:", process.env.GCLOUD_PROJECT_ID);
-
-        // Check if credentials are available
-        if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            log("GOOGLE_APPLICATION_CREDENTIALS not set, returning null");
+        if (
+            !process.env.GOOGLE_PRIVATE_KEY ||
+            !process.env.GOOGLE_CLIENT_EMAIL
+        ) {
             return {
                 getAccessToken: async () => null,
             };
@@ -308,13 +268,11 @@ function initGoogleCloudAuth(): AuthInstance {
                 "Failed to initialize Google Cloud authentication:",
                 error,
             );
-            // We'll still continue and try again later
         });
 
         // Set up a timer to refresh the token every 50 minutes
         const intervalId = setInterval(
             () => {
-                log("Refreshing Google Cloud access token");
                 getGcloudAccessToken().catch((error) => {
                     errorLog(
                         "Failed to refresh Google Cloud access token:",
@@ -325,18 +283,14 @@ function initGoogleCloudAuth(): AuthInstance {
             50 * 60 * 1000,
         );
 
-        // Return the getGcloudAccessToken function for convenience
         return {
             getAccessToken: getGcloudAccessToken,
-            // Add a cleanup method to clear the interval if needed
             cleanup: () => {
                 clearInterval(intervalId);
-                log("Google Cloud authentication timer cleared");
             },
         };
     } catch (error) {
         errorLog("Failed to initialize Google Cloud authentication:", error);
-        // Return a dummy object that returns null for getAccessToken
         return {
             getAccessToken: async () => null,
         };
@@ -357,7 +311,6 @@ function getAuthInstance(): AuthInstance {
     return authInstance;
 }
 
-// Export the lazy getter instead of an immediately initialized instance
 export default {
     getAccessToken: async (): Promise<string | null> => {
         const instance = getAuthInstance();
@@ -368,5 +321,5 @@ export default {
         if (instance.cleanup) {
             instance.cleanup();
         }
-    }
+    },
 };

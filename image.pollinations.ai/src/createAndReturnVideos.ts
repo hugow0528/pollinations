@@ -4,98 +4,104 @@
  */
 
 import debug from "debug";
-import type { ImageParams } from "./params.ts";
-import type { ProgressManager } from "./progressBar.ts";
-import {
-    callVeoAPI,
-    type VideoGenerationResult,
-} from "./models/veoVideoModel.ts";
+import { callAirforceVideoAPI } from "./models/airforceModel.ts";
+import { callLtx2API } from "./models/ltx2VideoModel.ts";
+import { callPrunaVideoAPI } from "./models/prunaModel.ts";
 import {
     callSeedanceAPI,
     callSeedanceProAPI,
 } from "./models/seedanceVideoModel.ts";
+import {
+    callVeoAPI,
+    type VideoGenerationResult,
+} from "./models/veoVideoModel.ts";
+import { callWanAPI } from "./models/wanVideoModel.ts";
+import type { ImageParams } from "./params.ts";
+import type { ProgressManager } from "./progressBar.ts";
 export type { VideoGenerationResult };
-import { incrementModelCounter } from "./modelCounter.ts";
+
+import type { ImageServiceId } from "../../shared/registry/image.ts";
+import { IMAGE_CONFIG } from "./models.ts";
 
 const logOps = debug("pollinations:video:ops");
-const logError = debug("pollinations:video:error");
 
-/**
- * Creates and returns video content using the appropriate model
- * @param {string} prompt - The prompt for video generation
- * @param {ImageParams} safeParams - Parameters for video generation
- * @param {ProgressManager} progress - Progress tracking object
- * @param {string} requestId - Request ID for progress tracking
- * @returns {Promise<VideoGenerationResult>}
- */
 export async function createAndReturnVideo(
     prompt: string,
     safeParams: ImageParams,
     progress: ProgressManager,
     requestId: string,
 ): Promise<VideoGenerationResult> {
-    try {
-        logOps("Starting video generation:", {
-            prompt,
-            model: safeParams.model,
-        });
+    logOps("Starting video generation:", { prompt, model: safeParams.model });
+    progress.updateBar(
+        requestId,
+        20,
+        "Processing",
+        "Starting video generation...",
+    );
 
-        // Log model usage
-        incrementModelCounter(safeParams.model).catch(() => {});
-
-        // Update progress
-        progress.updateBar(
-            requestId,
-            20,
-            "Processing",
-            "Starting video generation...",
-        );
-
-        // Route to appropriate video model
-        let result: VideoGenerationResult;
-
-        if (safeParams.model === "veo") {
-            // Google Veo 3.1 Fast
+    let result: VideoGenerationResult;
+    switch (safeParams.model) {
+        case "veo":
             result = await callVeoAPI(prompt, safeParams, progress, requestId);
-        } else if (safeParams.model === "seedance") {
-            // BytePlus Seedance Lite (better quality)
+            break;
+        case "seedance":
             result = await callSeedanceAPI(
                 prompt,
                 safeParams,
                 progress,
                 requestId,
             );
-        } else if (safeParams.model === "seedance-pro") {
-            // BytePlus Seedance Pro-Fast (better prompt adherence)
+            break;
+        case "seedance-pro":
             result = await callSeedanceProAPI(
                 prompt,
                 safeParams,
                 progress,
                 requestId,
             );
-        } else {
+            break;
+        case "wan":
+            result = await callWanAPI(prompt, safeParams, progress, requestId);
+            break;
+        case "ltx-2":
+            result = await callLtx2API(prompt, safeParams, progress, requestId);
+            break;
+        case "grok-video":
+            result = await callAirforceVideoAPI(
+                prompt,
+                safeParams,
+                progress,
+                requestId,
+                "grok-imagine-video",
+            );
+            break;
+        case "p-video":
+            result = await callPrunaVideoAPI(
+                prompt,
+                safeParams,
+                progress,
+                requestId,
+            );
+            break;
+        default:
             throw new Error(
                 `Video generation not supported for model: ${safeParams.model}`,
             );
-        }
-
-        logOps("Video generation complete:", {
-            durationSeconds: result.durationSeconds,
-            bufferSize: result.buffer.length,
-        });
-
-        return result;
-    } catch (error) {
-        logError("Error in createAndReturnVideo:", error);
-        throw error;
     }
+
+    logOps("Video generation complete:", {
+        durationSeconds: result.durationSeconds,
+        bufferSize: result.buffer.length,
+    });
+    return result;
 }
 
 /**
- * Check if a model is a video model
- * @param {string} model - Model name
- * @returns {boolean}
+ * Check if a model is a video model by looking at the IMAGE_CONFIG
  */
 export function isVideoModel(model: string): boolean {
-    return model === "veo" || model === "seedance" || model === "seedance-pro";
+    const config = IMAGE_CONFIG[model as ImageServiceId] as {
+        isVideo?: boolean;
+    };
+    return config?.isVideo === true;
 }

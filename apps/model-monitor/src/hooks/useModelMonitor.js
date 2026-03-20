@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Tinybird config
 // Note: This is a READ-ONLY public token, safe to expose in client code
@@ -8,24 +8,64 @@ const TINYBIRD_TOKEN =
 
 // Model list endpoints
 const MODEL_ENDPOINTS = {
-    image: "https://enter.pollinations.ai/api/generate/image/models",
-    text: "https://enter.pollinations.ai/api/generate/text/models",
+    image: "https://gen.pollinations.ai/image/models",
+    text: "https://gen.pollinations.ai/text/models",
+    audio: "https://gen.pollinations.ai/audio/models",
 };
 
-const POLL_INTERVAL = 15000; // 15 seconds (reduced from 30s for faster trend detection)
+// Tinybird pipes for different aggregation windows
+const TINYBIRD_PIPES = {
+    "60m": "model_health_60m",
+    "5m": "model_health",
+};
+
+// Poll intervals based on aggregation window
+const POLL_INTERVALS = {
+    "60m": 60000, // 1 minute for stable 60m view
+    "5m": 15000, // 15 seconds for live 5m view
+};
 const SPARKLINE_POINTS = 20; // Keep 20 data points for sparklines (~5 min at 15s intervals)
 const TREND_SAMPLES = 8; // Compare current to 8 samples ago (~2 min baseline)
 const MIN_TREND_SAMPLES = 4; // Need at least 1 min of data before showing trends
+
+// Calculate total 4xx errors (user errors)
+function calcTotal4xx(stats) {
+    return (
+        (stats.errors_400 || 0) +
+        (stats.errors_401 || 0) +
+        (stats.errors_402 || 0) +
+        (stats.errors_403 || 0) +
+        (stats.errors_429 || 0) +
+        (stats.errors_4xx_other || 0)
+    );
+}
+
+// Calculate total 5xx errors (model/server errors)
+function calcTotal5xx(stats) {
+    return (
+        (stats.errors_500 || 0) +
+        (stats.errors_502 || 0) +
+        (stats.errors_503 || 0) +
+        (stats.errors_504 || 0) +
+        (stats.errors_5xx_other || 0)
+    );
+}
+
+// Enrich stats with computed totals
+function enrichStats(stats) {
+    if (!stats) return null;
+    return {
+        ...stats,
+        total_4xx: calcTotal4xx(stats),
+        total_5xx: calcTotal5xx(stats),
+    };
+}
 
 // Helper to extract metrics from stats
 function extractMetrics(stats) {
     if (!stats) return null;
     const total = stats.total_requests || 0;
-    const err5xx =
-        (stats.errors_500 || 0) +
-        (stats.errors_502 || 0) +
-        (stats.errors_503 || 0) +
-        (stats.errors_504 || 0);
+    const err5xx = calcTotal5xx(stats);
     return {
         p95: stats.latency_p95_ms || 0,
         err5xxPct: total > 0 ? (err5xx / total) * 100 : 0,
@@ -54,10 +94,11 @@ function computeTrend(currentMetrics, samples) {
     return { p95Change, err5xxChange, volumeChange };
 }
 
-export function useModelMonitor() {
+export function useModelMonitor(aggregationWindow = "60m") {
+    const pollInterval =
+        POLL_INTERVALS[aggregationWindow] || POLL_INTERVALS["60m"];
     const [models, setModels] = useState([]);
     const [healthStats, setHealthStats] = useState([]);
-    const [isPolling, setIsPolling] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [error, setError] = useState(null);
     const [endpointStatus, setEndpointStatus] = useState({
@@ -71,39 +112,49 @@ export function useModelMonitor() {
     const historyRef = useRef({}); // { modelKey: { prev: stats, sparkline: [{p95, err5xx, volume}, ...] } }
     const lastFetchRef = useRef(null); // Track when we last processed data
 
-    // Fetch model list from enter.pollinations.ai
+    // Fetch model list from gen.pollinations.ai
     const fetchModels = useCallback(async () => {
-        let imageOk = false;
-        let textOk = false;
-        let imageModels = [];
-        let textModels = [];
-
-        try {
-            const imageRes = await fetch(MODEL_ENDPOINTS.image);
-            imageOk = imageRes.ok;
-            if (imageOk) imageModels = await imageRes.json();
-        } catch (err) {
-            console.error("Failed to fetch image models:", err);
+        const results = {};
+        for (const [type, url] of Object.entries(MODEL_ENDPOINTS)) {
+            try {
+                const res = await fetch(url);
+                results[type] = {
+                    ok: res.ok,
+                    models: res.ok ? await res.json() : [],
+                };
+            } catch (err) {
+                console.error(`Failed to fetch ${type} models:`, err);
+                results[type] = { ok: false, models: [] };
+            }
         }
 
-        try {
-            const textRes = await fetch(MODEL_ENDPOINTS.text);
-            textOk = textRes.ok;
-            if (textOk) textModels = await textRes.json();
-        } catch (err) {
-            console.error("Failed to fetch text models:", err);
-        }
+        setEndpointStatus({
+            image: results.image?.ok ?? null,
+            text: results.text?.ok ?? null,
+            audio: results.audio?.ok ?? null,
+        });
 
-        setEndpointStatus({ image: imageOk, text: textOk });
+        // Derive display type from output_modalities when available
+        // (e.g. veo/wan/seedance are served from /image/models but output video)
+        const resolveType = (m, endpointType) => {
+            const out = m.output_modalities;
+            if (out?.includes("video")) return "video";
+            return endpointType;
+        };
 
-        const allModels = [
-            ...imageModels.map((m) => ({ ...m, type: "image" })),
-            ...textModels.map((m) => ({ ...m, type: "text" })),
-        ].sort((a, b) => a.name.localeCompare(b.name));
+        const allModels = Object.entries(results)
+            .flatMap(([type, { models }]) =>
+                models.map((m) => ({
+                    ...m,
+                    type: resolveType(m, type),
+                    endpointType: type, // original endpoint for Tinybird stats matching
+                })),
+            )
+            .sort((a, b) => a.name.localeCompare(b.name));
 
         setModels(allModels);
 
-        if (!imageOk && !textOk) {
+        if (Object.values(results).every((r) => !r.ok)) {
             setError("Failed to fetch model list");
         } else {
             setError(null);
@@ -119,7 +170,9 @@ export function useModelMonitor() {
         }
 
         try {
-            const url = `${TINYBIRD_HOST}/v0/pipes/model_health.json?token=${TINYBIRD_TOKEN}`;
+            const pipeName =
+                TINYBIRD_PIPES[aggregationWindow] || TINYBIRD_PIPES["60m"];
+            const url = `${TINYBIRD_HOST}/v0/pipes/${pipeName}.json?token=${TINYBIRD_TOKEN}`;
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -134,7 +187,7 @@ export function useModelMonitor() {
             console.error("Failed to fetch health stats:", err);
             setError("Failed to fetch health stats from Tinybird");
         }
-    }, []);
+    }, [aggregationWindow]);
 
     // Separate gateway stats (undefined model = auth/validation failures before model resolution)
     const gatewayStats = healthStats.filter((s) => s.model === "undefined");
@@ -192,33 +245,42 @@ export function useModelMonitor() {
     }, [healthStats, lastUpdated]);
 
     // Merge models with health stats, trends, and sparklines
+    // Use endpointType (original API endpoint) for Tinybird matching since
+    // Tinybird reports e.g. generate.image for video models served from /image/models
     const mergedModels = models.map((model) => {
         const modelKey = `${model.type}-${model.name}`;
-        const stats = modelStats.find(
+        const statsType = model.endpointType || model.type;
+        const rawStats = modelStats.find(
             (s) =>
                 s.model === model.name &&
-                s.event_type === `generate.${model.type}`,
+                s.event_type === `generate.${statsType}`,
         );
+        const stats = enrichStats(rawStats);
         const { trend, sparkline } = getModelTrend(modelKey, stats);
-        return { ...model, stats: stats || null, trend, sparkline };
+        return { ...model, stats, trend, sparkline };
     });
 
     // Add models from health stats that aren't in the registered model list (but not "undefined")
+    // Skip cross-type noise: if a model name exists in ANY registered type, don't show it
+    // as "unregistered" under a different type (e.g. flux hitting generate.text)
+    const allRegisteredNames = new Set(models.map((m) => m.name));
     const unmatchedStats = modelStats.filter(
         (s) =>
             !models.some(
                 (m) =>
-                    m.name === s.model && `generate.${m.type}` === s.event_type,
-            ),
+                    m.name === s.model &&
+                    `generate.${m.endpointType || m.type}` === s.event_type,
+            ) && !allRegisteredNames.has(s.model),
     );
     const extraModels = unmatchedStats.map((s) => {
         const modelKey = `${s.event_type?.replace("generate.", "") || "unknown"}-${s.model}`;
-        const { trend, sparkline } = getModelTrend(modelKey, s);
+        const stats = enrichStats(s);
+        const { trend, sparkline } = getModelTrend(modelKey, stats);
         return {
             name: s.model || "(unknown)",
             type: s.event_type?.replace("generate.", "") || "unknown",
             description: "Unregistered model",
-            stats: s,
+            stats,
             trend,
             sparkline,
         };
@@ -231,10 +293,6 @@ export function useModelMonitor() {
         fetchHealthStats();
     }, [fetchModels, fetchHealthStats]);
 
-    const togglePolling = useCallback(() => {
-        setIsPolling((prev) => !prev);
-    }, []);
-
     // Initial fetch
     useEffect(() => {
         refresh();
@@ -245,33 +303,30 @@ export function useModelMonitor() {
         };
     }, [refresh]);
 
-    // Polling
+    // Polling - always active
     useEffect(() => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
 
-        if (isPolling) {
-            intervalRef.current = setInterval(refresh, POLL_INTERVAL);
-        }
+        intervalRef.current = setInterval(refresh, pollInterval);
 
         return () => {
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
             }
         };
-    }, [isPolling, refresh]);
+    }, [refresh, pollInterval]);
 
     return {
         models: allModels,
         gatewayStats, // Pre-model auth/validation failures
-        isPolling,
-        togglePolling,
         refresh,
-        pollInterval: POLL_INTERVAL,
+        pollInterval,
         lastUpdated,
         error,
         tinybirdConfigured,
         endpointStatus,
+        aggregationWindow, // Current window for UI display
     };
 }

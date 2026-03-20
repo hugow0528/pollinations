@@ -1,58 +1,32 @@
 import { COST_START_DATE, perMillion } from "./price-helpers";
 import type { ServiceDefinition } from "./registry";
 
-export const DEFAULT_IMAGE_MODEL = "flux" as const;
+export const DEFAULT_IMAGE_MODEL = "zimage" as const;
 
 export type ImageServiceId = keyof typeof IMAGE_SERVICES;
 export type ImageModelId = (typeof IMAGE_SERVICES)[ImageServiceId]["modelId"];
 
 export const IMAGE_SERVICES = {
-    "flux": {
-        aliases: [],
-        modelId: "flux", // Provider returns this - used for cost lookup
-        provider: "io.net",
-        cost: [
-            {
-                date: COST_START_DATE,
-                completionImageTokens: 0.00012, // $0.0088¢ per image (GPU cluster cost - September avg)
-            },
-        ],
-        description: "Flux - Fast and high-quality image generation",
-        inputModalities: ["text"],
-        outputModalities: ["image"],
-    },
     "kontext": {
         aliases: [],
         modelId: "kontext",
         provider: "azure",
+        paidOnly: true,
         cost: [
             {
                 date: COST_START_DATE,
                 completionImageTokens: 0.04, // $0.04 per image (Azure pricing)
             },
         ],
-        description: "Kontext - Context-aware image generation",
+        description: "FLUX.1 Kontext - In-context editing & generation",
         inputModalities: ["text", "image"],
-        outputModalities: ["image"],
-    },
-    "turbo": {
-        aliases: [],
-        modelId: "turbo",
-        provider: "scaleway",
-        cost: [
-            {
-                date: COST_START_DATE,
-                completionImageTokens: 0.0003,
-            },
-        ],
-        description: "Turbo - Ultra-fast image generation",
-        inputModalities: ["text"],
         outputModalities: ["image"],
     },
     "nanobanana": {
         aliases: [],
         modelId: "nanobanana",
-        provider: "vertex-ai",
+        provider: "google",
+        paidOnly: true,
         cost: [
             // Gemini 2.5 Flash Image via Vertex AI
             {
@@ -66,10 +40,29 @@ export const IMAGE_SERVICES = {
         inputModalities: ["text", "image"],
         outputModalities: ["image"],
     },
+    "nanobanana-2": {
+        aliases: ["nanobanana2"],
+        modelId: "nanobanana-2",
+        provider: "google",
+        paidOnly: true,
+        cost: [
+            // Gemini 3.1 Flash Image via Vertex AI
+            {
+                date: COST_START_DATE,
+                promptTextTokens: perMillion(0.5), // $0.50 per 1M input tokens
+                promptImageTokens: perMillion(0.5), // $0.50 per 1M input tokens
+                completionImageTokens: perMillion(60), // $60 per 1M tokens × 2520 tokens/image = $0.151 per image
+            },
+        ],
+        description: "NanoBanana 2 - Gemini 3.1 Flash Image",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
     "nanobanana-pro": {
         aliases: [],
         modelId: "nanobanana-pro",
-        provider: "vertex-ai",
+        provider: "google",
+        paidOnly: true,
         cost: [
             // Gemini 3 Pro Image via Vertex AI
             // 1K/2K image: 1120 tokens = $0.134/image ($120/M tokens)
@@ -85,40 +78,59 @@ export const IMAGE_SERVICES = {
         inputModalities: ["text", "image"],
         outputModalities: ["image"],
     },
+    "seedream5": {
+        aliases: [],
+        modelId: "seedream5",
+        provider: "bytedance",
+        paidOnly: true,
+        cost: [
+            // ByteDance ARK Seedream 5.0 Lite - $0.035 per image
+            {
+                date: COST_START_DATE,
+                completionImageTokens: 0.035, // $0.035 per image (3.5 cents)
+            },
+        ],
+        description:
+            "Seedream 5.0 Lite - ByteDance ARK (web search, reasoning)",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
     "seedream": {
         aliases: [],
         modelId: "seedream",
-        provider: "bytedance-ark",
+        provider: "bytedance",
+        paidOnly: true,
+        hidden: true,
         cost: [
-            // ByteDance ARK Seedream 4.0 - $0.03 per image
             {
                 date: COST_START_DATE,
-                completionImageTokens: 0.03, // $0.03 per image (3 cents)
+                completionImageTokens: 0.03, // $0.03 per image (real 4.0)
             },
         ],
-        description: "Seedream 4.0 - ByteDance ARK (better quality)",
+        description: "Seedream 4.0 - ByteDance ARK (legacy)",
         inputModalities: ["text", "image"],
         outputModalities: ["image"],
     },
     "seedream-pro": {
         aliases: [],
         modelId: "seedream-pro",
-        provider: "bytedance-ark",
+        provider: "bytedance",
+        paidOnly: true,
+        hidden: true,
         cost: [
-            // ByteDance ARK Seedream 4.5 - $0.04 per image
             {
                 date: COST_START_DATE,
-                completionImageTokens: 0.04, // $0.04 per image (4 cents)
+                completionImageTokens: 0.04, // $0.04 per image (real 4.5)
             },
         ],
-        description: "Seedream 4.5 Pro - ByteDance ARK (4K, Multi-Image)",
+        description: "Seedream 4.5 Pro - ByteDance ARK (legacy)",
         inputModalities: ["text", "image"],
         outputModalities: ["image"],
     },
     "gptimage": {
         aliases: ["gpt-image", "gpt-image-1-mini"],
         modelId: "gptimage",
-        provider: "azure-openai",
+        provider: "azure-2",
         cost: [
             // Azure gpt-image-1-mini
             {
@@ -133,26 +145,59 @@ export const IMAGE_SERVICES = {
         inputModalities: ["text", "image"],
         outputModalities: ["image"],
     },
+    "gptimage-large": {
+        aliases: ["gpt-image-1.5", "gpt-image-large"],
+        modelId: "gptimage-large",
+        provider: "azure",
+        paidOnly: true,
+        cost: [
+            // Azure GPT Image 1.5 (via AI Foundry)
+            // Official pricing: https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/introducing-openai%E2%80%99s-gpt-image-1-5-in-microsoft-foundry/4478139
+            {
+                date: COST_START_DATE,
+                promptTextTokens: perMillion(8), // $8.00 per 1M input tokens (Azure)
+                promptCachedTokens: perMillion(2), // $2.00 per 1M cached input tokens (Azure)
+                promptImageTokens: perMillion(8), // $8.00 per 1M image input tokens (Azure)
+                completionImageTokens: perMillion(32), // $32.00 per 1M output tokens (Azure)
+            },
+        ],
+        description: "GPT Image 1.5 - OpenAI's advanced image generation model",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
+    "flux": {
+        aliases: [],
+        modelId: "flux",
+        provider: "vast.ai",
+        cost: [
+            {
+                date: COST_START_DATE,
+                completionImageTokens: 0.001,
+            },
+        ],
+        description: "Flux Schnell - Fast high-quality image generation",
+        inputModalities: ["text"],
+        outputModalities: ["image"],
+    },
     "zimage": {
         aliases: ["z-image", "z-image-turbo"],
         modelId: "zimage",
-        provider: "self-hosted",
+        provider: "vast.ai",
         cost: [
-            // Z-Image-Turbo (6B params, 9 steps)
-            // Self-hosted on L40S, ~0.9s for 512x512, ~3.5s for 1024x1024
             {
                 date: COST_START_DATE,
-                completionImageTokens: 0.0002, // ~$0.0002 per image (GPU cost estimate)
+                completionImageTokens: 0.002,
             },
         ],
-        description: "Z-Image-Turbo - Fast 6B parameter image generation (alpha)",
+        description: "Z-Image Turbo - Fast 6B Flux with 2x upscaling",
         inputModalities: ["text"],
         outputModalities: ["image"],
     },
     "veo": {
         aliases: ["veo-3.1-fast", "video"],
         modelId: "veo",
-        provider: "vertex-ai",
+        provider: "google",
+        paidOnly: true,
         cost: [
             // Veo 3.1 Fast - $0.15 per second of video
             // We bill by "video seconds" - each second is counted like a token
@@ -162,13 +207,14 @@ export const IMAGE_SERVICES = {
             },
         ],
         description: "Veo 3.1 Fast - Google's video generation model (preview)",
-        inputModalities: ["text"],
+        inputModalities: ["text", "image"],
         outputModalities: ["video"],
     },
     "seedance": {
         aliases: [],
         modelId: "seedance",
-        provider: "bytedance-ark",
+        provider: "bytedance",
+        paidOnly: true,
         cost: [
             // Seedance Lite - $1.8/M tokens
             // Token formula: (height × width × FPS × duration) / 1024
@@ -185,7 +231,8 @@ export const IMAGE_SERVICES = {
     "seedance-pro": {
         aliases: [],
         modelId: "seedance-pro",
-        provider: "bytedance-ark",
+        provider: "bytedance",
+        paidOnly: true,
         cost: [
             // Seedance Pro-Fast - $1/M tokens
             // Token formula: (height × width × FPS × duration) / 1024
@@ -196,6 +243,200 @@ export const IMAGE_SERVICES = {
         ],
         description:
             "Seedance Pro-Fast - BytePlus video generation (better prompt adherence)",
+        inputModalities: ["text", "image"],
+        outputModalities: ["video"],
+    },
+    "wan": {
+        aliases: ["wan2.6", "wan-i2v"],
+        modelId: "wan",
+        provider: "alibaba",
+        paidOnly: true,
+        cost: [
+            // Wan 2.6 - Alibaba DashScope international pricing (720P)
+            // T2V: $0.10/sec, I2V+audio: $0.05/sec, I2V no audio: $0.025/sec
+            // Using I2V+audio rate as base since T2V also generates audio
+            // Audio cost split out separately for tracking
+            {
+                date: new Date("2026-02-20").getTime(),
+                completionVideoSeconds: 0.05, // $0.05 per second (video)
+                completionAudioSeconds: 0.05, // $0.05 per second (audio)
+            },
+        ],
+        description:
+            "Wan 2.6 - Alibaba text/image-to-video with audio (2-15s, up to 1080P) via DashScope",
+        inputModalities: ["text", "image"],
+        outputModalities: ["video"],
+    },
+    "klein": {
+        aliases: ["flux-klein"],
+        modelId: "klein",
+        provider: "bpai",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-01-21").getTime(), // Launch date
+                completionImageTokens: 0.01,
+            },
+        ],
+        description:
+            "FLUX.2 Klein 4B - Fast image generation and editing via bpaigen",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
+    "imagen-4": {
+        aliases: ["imagen"],
+        modelId: "imagen-4",
+        provider: "airforce",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-02-07").getTime(),
+                completionImageTokens: 0.0025, // $0.0025 per image
+            },
+        ],
+        description: "Imagen 4 (api.airforce) - Google's latest image gen",
+        inputModalities: ["text"],
+        outputModalities: ["image"],
+    },
+    "flux-2-dev": {
+        aliases: ["flux-2", "flux2-dev"],
+        modelId: "flux-2-dev",
+        provider: "airforce",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-03-02").getTime(),
+                completionImageTokens: 0.001, // $0.001 per image
+            },
+        ],
+        description: "FLUX.2 Dev (api.airforce) - Flux 2 image generation",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
+    "grok-imagine": {
+        aliases: [],
+        modelId: "grok-imagine",
+        provider: "airforce",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-02-16").getTime(),
+                completionImageTokens: 0.0025, // $0.0025 per image
+            },
+        ],
+        description: "Grok Imagine (api.airforce) - xAI image gen",
+        inputModalities: ["text"],
+        outputModalities: ["image"],
+    },
+    "dirtberry": {
+        aliases: [],
+        modelId: "dirtberry",
+        provider: "airforce",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-03-09").getTime(),
+                completionImageTokens: 0.001, // ~free via api.airforce
+            },
+        ],
+        description:
+            "Dirtberry (api.airforce) - Quick realistic image generation",
+        inputModalities: ["text"],
+        outputModalities: ["image"],
+    },
+    "dirtberry-pro": {
+        aliases: ["special-berry"],
+        modelId: "special-berry",
+        provider: "airforce",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-03-13").getTime(),
+                completionImageTokens: 0.0015, // 1.5x dirtberry ($0.001)
+            },
+        ],
+        description:
+            "Dirtberry Pro (api.airforce) - High quality realism, pixel art & complex scenes",
+        inputModalities: ["text"],
+        outputModalities: ["image"],
+    },
+    "grok-video": {
+        aliases: ["grok-imagine-video"],
+        modelId: "grok-video",
+        provider: "airforce",
+        alpha: true,
+        cost: [
+            {
+                date: new Date("2026-02-07").getTime(),
+                completionVideoSeconds: 0.0025, // $0.0025 per second
+            },
+        ],
+        description: "Grok Video (api.airforce) - xAI video gen",
+        inputModalities: ["text", "image"],
+        outputModalities: ["video"],
+    },
+    "ltx-2": {
+        aliases: ["ltx2", "ltxvideo", "ltx-video"],
+        modelId: "ltx-2",
+        provider: "modal",
+        paidOnly: true,
+        cost: [
+            // LTX-2 on Modal H200 GPU
+            // Replicate's price (~$0.08/8s = $0.01/s)
+            // $0.05 per 5-second video
+            {
+                date: new Date("2026-02-03").getTime(), // Launch date
+                completionVideoSeconds: 0.01, // $0.01/sec (Replicate's rate)
+            },
+        ],
+        description:
+            "LTX-2 - Fast text-to-video generation with audio on Modal",
+        inputModalities: ["text"],
+        outputModalities: ["video"],
+    },
+    "p-image": {
+        aliases: ["pruna-image", "pruna"],
+        modelId: "p-image",
+        provider: "pruna",
+        paidOnly: true,
+        cost: [
+            {
+                date: new Date("2026-03-13").getTime(),
+                completionImageTokens: 0.005, // $0.005 per image
+            },
+        ],
+        description: "Pruna p-image - Fast text-to-image generation",
+        inputModalities: ["text"],
+        outputModalities: ["image"],
+    },
+    "p-image-edit": {
+        aliases: ["pruna-edit", "pruna-image-edit"],
+        modelId: "p-image-edit",
+        provider: "pruna",
+        paidOnly: true,
+        cost: [
+            {
+                date: new Date("2026-03-13").getTime(),
+                completionImageTokens: 0.01, // $0.01 per image
+            },
+        ],
+        description: "Pruna p-image-edit - Image-to-image editing",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
+    "p-video": {
+        aliases: ["pruna-video"],
+        modelId: "p-video",
+        provider: "pruna",
+        paidOnly: true,
+        cost: [
+            {
+                date: new Date("2026-03-13").getTime(),
+                completionVideoSeconds: 0.024, // $0.12 per run / 5s default = $0.024/sec
+            },
+        ],
+        description:
+            "Pruna p-video - Text/image-to-video generation (up to 1080p)",
         inputModalities: ["text", "image"],
         outputModalities: ["video"],
     },

@@ -1,102 +1,94 @@
-# Agent Guidelines for Pollinations.AI
+# Agent Guidelines for pollinations.ai
 
 ## App Submission Handling
 
-When handling app submission issues (labeled as **APPS** in GitHub):
+App submissions use a **two-phase review** via `app-review-submission.yml`: AI review + human approval.
 
-1. Add new apps to the appropriate category file in:
+**Source of truth:** `apps/APPS.md` - A single markdown table with all apps.
 
-    - pollinations.ai/src/config/projects/[category].js (e.g., creative.js, vibeCoding.js, etc.)
-    - DO NOT manually edit the README.md file directly
-    - After adding apps, regenerate the lists by running:
-        ```bash
-        node pollinator-agent/project-list-scripts/generate-project-table.js --update-readme
-        ```
+**How it works:**
 
-2. App Entry Format:
+1. User opens issue with `TIER-APP` label
+2. Workflow validates (Enter registration, duplicates), AI generates emoji + description
+3. Bot posts preview comment with `APP_REVIEW_DATA` JSON block, labels `TIER-APP-REVIEW`
+4. Maintainer reviews preview, adds `TIER-APP-APPROVED` label
+5. Workflow creates branch, prepends row to `apps/APPS.md`, creates PR with auto-merge
+6. After checks pass, PR merges automatically, issue closed with `TIER-APP-COMPLETE`
 
-    ```javascript
-    {
-      name: "App Name",
-      url: "https://app-url.com", // REQUIRED - working app URL
-      description: "Brief description of the app.",
-      author: "@discord_username", // if available or alternatively a URL to a social media profile
-      repo: "https://github.com/repo-url", // OPTIONAL - GitHub repo if available
-      submissionDate: "YYYY-MM-DD", // automatically added for new submissions
-      language: "zh-CN", // for non-English apps, include the language code
-      hidden: true, // optional, set to true for broken apps that shouldn't appear in README.md
-      order: 1 // ordering priority based on status (1=highest, 5=lowest)
-    }
-    ```
+**Label state machine:**
 
-3. App Ordering Rules:
+```
+TIER-APP (new issue)
+  → TIER-APP-REJECTED (validation failed: duplicate/spore)
+  → TIER-APP-INCOMPLETE (not registered, user needs to fix)
+  → TIER-APP-REVIEW (AI review passed, preview posted, awaiting human)
+    → TIER-APP-APPROVED (maintainer approves → PR created + auto-merged)
+      → TIER-APP-COMPLETE (PR merged, tier upgraded, issue closed)
+    → TIER-APP-REJECTED (maintainer closes issue)
+```
 
-    - In the README.md file, apps should be ordered within their categories:
-        - First by the `order` parameter (lower values first: 1, 2, 3, 4, 5)
-        - Then by GitHub star count (higher star counts first)
-        - For apps with the same order and no stars, use the submission date if there is one, if not keep the order as it is.
-    - In the website rendering, the projectList.js order will be dynamically sorted using the same criteria so the actual order in the projectList.js file should not be changed
+**Manual edits (if needed):**
 
-4. Hiding Broken Apps:
+- Edit `apps/APPS.md` directly
+- Run `node .github/scripts/app-update-readme.js` to refresh README
 
-    - Set `hidden: true` for broken/unmaintained apps
-    - Hidden apps excluded from README.md but remain in projectList.js
+**Table format in APPS.md:**
 
-5. GitHub Star Counts:
+```markdown
+| Emoji | Name     | Web_URL | Description                   | Language | Category | Platform | GitHub  | GitHub_ID | Repo                   | Stars | Discord | Other | Submitted_Date | Issue_URL | Approved_Date |
+| ----- | -------- | ------- | ----------------------------- | -------- | -------- | -------- | ------- | --------- | ---------------------- | ----- | ------- | ----- | -------------- | --------- | ------------- |
+| 🎨    | App Name | url     | Brief description (~80 chars) |          | creative | web      | @github | 12345678  | https://github.com/... | ⭐123 |         |       | 2025-01-01     | #1234     | 2025-01-02    |
+```
 
-    - Add `stars` property for GitHub repos
-    - Update counts: `node .github/scripts/app_list_update_stars.js [owner/repo]`
+- **Submitted_Date**: Issue creation date (when user submitted)
+- **Issue_URL**: Link to original GitHub issue
+- **Approved_Date**: PR merge date (when app was approved)
 
-6. Categories (as of June 2025):
-    - Vibe Coding ✨ (`vibeCoding.js`): No-code / describe-to-code playgrounds and builders
-    - Creative 🎨 (`creative.js`): Turn prompts into images, video, music, design, slides
-    - Games 🎲 (`games.js`): AI-powered play, interactive fiction, puzzle & agent worlds
-    - Hack-&-Build 🛠️ (`hackAndBuild.js`): SDKs, integration libs, extensions, dashboards, MCP servers
-    - Chat 💬 (`chat.js`): Standalone chat UIs / multi-model playgrounds
-    - Social Bots 🤖 (`socialBots.js`): Discord / Telegram / WhatsApp / Roblox bots & NPCs
-    - Learn 📚 (`learn.js`): Tutorials, guides, style books & educational demos
-    - (Tracking file: `tracking/toProcess.md` for workflow management)
+**Platform values** (auto-detected from URL + description):
 
-## Classification Guidelines
+| Value | When to use |
+|-------|-------------|
+| `web` | Browser-based app (default when URL exists) |
+| `android` | Google Play Store app |
+| `ios` | App Store or Apple Shortcuts (routinehub.co) |
+| `windows` | Windows desktop / .exe |
+| `macos` | macOS native app |
+| `desktop` | Cross-platform desktop (Python/Qt, Electron, etc.) |
+| `cli` | Command-line tool |
+| `discord` | Discord bot or app |
+| `telegram` | Telegram bot |
+| `whatsapp` | WhatsApp bot |
+| `library` | npm/PyPI/Go package, SDK, API wrapper |
+| `browser-ext` | Browser extension (Firefox, Chrome) |
+| `roblox` | Roblox game |
+| `wordpress` | WordPress plugin |
+| `api` | Backend/server with no public UI (default when no URL) |
 
--   One category per app (no duplicates)
--   Based on actual functionality, not source JSON category
--   Prefer less-populated categories for balance
--   Track uncategorized in `tracking/toProcess.md`
--   Source of truth: `accumulated-apps.json`
+Multiple platforms: comma-separated, e.g. `telegram,whatsapp`
 
-**Category Mapping:**
+**Categories:**
 
--   `learn.js`: Educational/interactive learning
--   `hackAndBuild.js`: SDKs, APIs, toolkits
--   `creative.js`: Image/text/audio generation
--   `chat.js`: Chatbots, conversational agents
--   `games.js`: Games, interactive fiction
--   `socialBots.js`: Platform bots (Discord/Telegram/etc)
+- 🖼️ Image (`image`): Image gen, editing, design, avatars, stickers
+- 🎬 Video & Audio (`video_audio`): Video gen, animation, music, TTS
+- ✍️ Write (`writing`): Content creation, storytelling, copy, slides
+- 💬 Chat (`chat`): Assistants, companions, AI studio, multi-modal chat
+- 🎮 Play (`games`): AI games, interactive fiction, Roblox worlds
+- 📚 Learn (`learn`): Education, tutoring, language learning
+- 🤖 Bots (`bots`): Discord, Telegram, WhatsApp bots
+- 🛠️ Build (`build`): Dev tools, SDKs, integrations, vibe coding
+- 💼 Business (`business`): Productivity, finance, marketing, health, food
 
-7. Add UTF-8 icons to titles (🤖 bots, 🎨 creative, etc.)
+## Non-English Apps
 
-8. Non-English apps:
-
-    - Add country flag emoji (🇨🇳, 🇪🇸, etc.)
-    - Include `language` field with language code
-    - Add English translation in parentheses
-
-9. Commit attribution:
-
-    ```
-    Add [App Name] to [category]
-
-    Co-authored-by: [Username] <[user_id]+[username]@users.noreply.github.com>
-    Closes #[Issue]
-    ```
+- Use ISO language code in the `Language` column (e.g., `zh-CN`, `es`, `pt-BR`, `ja`)
+- No flags in the table - use language codes only
 
 ## Discord Configuration
 
-**Pollinations Discord Server:**
+**pollinations.ai Discord Server:**
 
--   **Guild ID**: `885844321461485618`
--   **Server**: https://discord.gg/pollinations-ai-885844321461485618
+- **Guild ID**: `885844321461485618`
+- **Server**: https://discord.gg/pollinations-ai-885844321461485618
 
 Use this guild ID when interacting with Discord MCP tools for announcements, community management, etc.
 
@@ -106,182 +98,370 @@ Key directories and their purposes:
 
 ```
 pollinations/
-├── image.pollinations.ai/     # Image generation backend service
-├── text.pollinations.ai/      # Text generation backend service
-├── pollinations.ai/           # Main React frontend application
-├── pollinations-react/        # React component library
-├── model-context-protocol/    # MCP server for AI assistant integration
-├── enter.pollinations.ai/     # Centralized auth gateway (ACTIVE)
-└── operations/                # Documentation and operations
+├── enter.pollinations.ai/     # Auth gateway + billing (Cloudflare Worker)
+├── gen.pollinations.ai/       # Edge router → enter gateway
+├── image.pollinations.ai/     # Image generation backend (EC2 + Vast.ai)
+├── text.pollinations.ai/      # Text generation backend (EC2)
+├── pollinations.ai/           # Main React frontend
+├── packages/
+│   ├── sdk/                   # @pollinations_ai/sdk - Client library with React hooks
+│   └── mcp/                   # @pollinations_ai/model-context-protocol - MCP server
+├── shared/                    # Shared utilities (auth, registry, IP queue)
+│   └── registry/              # Model registries (image.ts, text.ts, audio.ts, video.ts)
+├── apps/                      # Community apps + APPS.md showcase
+└── social/                    # Social media automation (Discord, Reddit, GitHub)
 ```
 
-## API Gateway Transition (Important)
+## API Gateway
 
-**We are currently running two API systems simultaneously:**
+**Primary endpoint:** `https://gen.pollinations.ai`
 
-### 🆕 **enter.pollinations.ai** (NEW - Beta)
+All API requests go through `gen.pollinations.ai`, which routes to the `enter.pollinations.ai` gateway for authentication and billing.
 
-Our new centralized authentication and model gateway:
+- **Authentication**: Publishable keys (`pk_`) for frontend, Secret keys (`sk_`) for backend
+- **Billing**: Pollen credits ($1 ≈ 1 Pollen)
+- **Get API keys**: [enter.pollinations.ai](https://enter.pollinations.ai)
+- **Full API docs**: [APIDOCS.md](./APIDOCS.md)
 
--   **Status**: Beta - actively being rolled out
--   **Features**: Unified authentication, pollen-based billing, all models in one place
--   **Authentication**: Publishable keys (`pk_`) and Secret keys (`sk_`)
--   **Endpoints** (transitional - will be simplified):
-    -   `/api/generate/image/*` - Image generation with all models
-    -   `/api/generate/openai` - OpenAI-compatible text/audio endpoints
-    -   `/api/generate/text/*` - Simple text generation
--   **Documentation**: See `enter.pollinations.ai/MODEL-TESTING-CHEATSHEET.md`
--   **Best for**: New integrations, testing, production-ready features
--   **Note**: Current endpoint structure is transitional and will be simplified in future releases
+**Services behind enter gateway:**
+- **Text**: OpenAI-compatible API via Portkey (multi-provider: OpenAI, Google, Anthropic, DeepSeek, etc.)
+- **Image**: Flux, Turbo, and other models on EC2/Vast.ai/io.net GPU instances
+- **Video**: Wan (via Airforce/Alibaba), Veo, LTX on GPU instances
+- **Audio**: ElevenLabs TTS/STT, text-to-music
+- **Tier system**: microbe → spore → seed → flower → nectar → router (see `enter.pollinations.ai/src/tier-config.ts`)
 
-### 🔄 **Legacy APIs** (OLD - Being Phased Out)
+### Local Development
 
--   **image.pollinations.ai** - Direct image generation (no auth validation)
--   **text.pollinations.ai** - Direct text generation (no auth validation)
--   **Status**: Image/text services operational but authentication removed; all auth now via enter.pollinations.ai
--   **Migration**: All new features are being built on enter.pollinations.ai
+**Service Ports:**
+- **enter.pollinations.ai**: `http://localhost:3000` (API under `/api/*`)
+- **text.pollinations.ai**: `http://localhost:16385`
+- **image.pollinations.ai**: `http://localhost:16384`
 
-**For Agents**: When working on API-related tasks, clarify whether you're working with:
+**Local API Testing:**
+```bash
+# Enter gateway (local)
+curl "http://localhost:3000/api/generate/image/test?model=flux" -H "Authorization: Bearer $TOKEN"
+curl "http://localhost:3000/api/generate/v1/chat/completions" -H "Authorization: Bearer $TOKEN" ...
+```
 
-1. **New system** (enter.pollinations.ai) - preferred for new work
-2. **Legacy system** (image/text.pollinations.ai) - maintenance only
+**Testing Enter with Local Services:**
+To test enter.pollinations.ai with local text/image services, edit `enter.pollinations.ai/wrangler.toml`:
+```toml
+# Default (remote EC2):
+IMAGE_SERVICE_URL = "http://ec2-3-80-56-235.compute-1.amazonaws.com:16384"
+TEXT_SERVICE_URL = "http://ec2-3-80-56-235.compute-1.amazonaws.com:16385"
 
-Both systems are currently functional, but new development should target enter.pollinations.ai.
+# For local testing (env.local):
+IMAGE_SERVICE_URL = "http://localhost:16384"
+TEXT_SERVICE_URL = "http://localhost:16385"
+```
+Use `npm run dev` in each service directory to start them.
+
+**Note:** EC2 hostnames in wrangler.toml may change. Check the actual values in `enter.pollinations.ai/wrangler.toml`.
 
 ## Model Context Protocol (MCP)
 
-The `model-context-protocol/` directory contains a Model Context Protocol server that allows AI agents to directly generate images, text, and audio using the Pollinations API.
+The `packages/mcp/` directory contains a Model Context Protocol server that allows AI agents to directly generate images, text, and audio using the pollinations.ai API.
 
 For detailed implementation notes, design principles, and troubleshooting, see:
 
--   `model-context-protocol/README.md` - Installation and usage
--   `model-context-protocol/AGENTS.md` - Implementation guidelines and debugging
+- `packages/mcp/README.md` - Installation and usage
+- `packages/mcp/AGENTS.md` - Implementation guidelines and debugging
 
 ## API Quick Reference
 
 ### Image Generation
 
-```
-GET https://image.pollinations.ai/prompt/{prompt}
-Parameters: model, seed, width, height, nologo, private, enhance, safe
-```
-
-### Text Generation
-
-```
-GET https://text.pollinations.ai/{prompt}
-POST https://text.pollinations.ai/
-Parameters: model, seed, json, system
+```bash
+curl 'https://gen.pollinations.ai/image/{prompt}' -H 'Authorization: Bearer YOUR_API_KEY'
 ```
 
-### Audio Generation
+### Text Generation (OpenAI-compatible)
 
+```bash
+curl 'https://gen.pollinations.ai/v1/chat/completions' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "openai", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
-GET https://text.pollinations.ai/{prompt}?model=openai-audio&voice={voice}
-POST https://text.pollinations.ai/
-Body: messages*, model (set to "openai-audio"), voice (optional)
+
+### Simple Text
+
+```bash
+curl 'https://gen.pollinations.ai/text/{prompt}?key=YOUR_API_KEY'
 ```
 
-### Testing & Operations Documentation
+### Audio (Text-to-Speech)
 
--   **[Model Testing Cheatsheet](enter.pollinations.ai/AGENTS.md)** - Comprehensive guide for testing all image and text models via enter.pollinations.ai API
--   **[Enter Services Deployment](.claude/skills/enter-services/SKILL.md)** - Deploy and manage text/image services on AWS EC2
+```bash
+curl 'https://gen.pollinations.ai/audio/{text}?voice=nova&key=YOUR_API_KEY' -o speech.mp3
+```
+
+### Model Discovery
+
+- **Image models**: `https://gen.pollinations.ai/image/models`
+- **Text models**: `https://gen.pollinations.ai/v1/models`
+
+### Documentation
+
+- **[Full API Documentation](./APIDOCS.md)**
+- **[Enter Services Deployment](.claude/skills/enter-services/SKILL.md)** - Deploy and manage services on AWS EC2
+
+## ⚠️ YAGNI - You Aren't Gonna Need It
+
+**THIS IS CRITICAL. Follow YAGNI religiously:**
+
+- **Don't keep code for "potential futures"** - Only implement what's needed NOW
+- **Remove unused functions** - Even if they "might be useful someday"
+- **No speculative abstractions** - If we need it later, we'll add it then
+- **No "just in case" helpers** - Don't create test utilities or wrappers preemptively
+- **Keep the codebase minimal** - Less code = fewer bugs = easier maintenance
+- **No fallbacks for backward compatibility** - Clean breaks are better than complexity bloat. When changing tokens, headers, or APIs, update all consumers at once rather than supporting both old and new patterns
+- **When user says "keep it simple" — they mean it** - Don't add layers, wrappers, or abstractions. One function, one price, one config. The simplest thing that works.
+
+## Code Style
+
+**Prefer functional, elegant, and minimal solutions:**
+
+- Don't implement things we're not using anymore
+- Check assumptions on the web and codebase regularly
+- When continuing work from a previous session, read all relevant code first
+- Check related PRs including comments, description, and history
+- If in the middle of a feature/fix, identify clear next steps before proceeding
+
+**Before implementing:**
+- **Verify assumptions on the web** - APIs, libraries, and patterns change frequently
+- **Read related files into context** - Get the full picture before making changes
+- **Check existing implementations** - Don't reinvent what already exists in the codebase
+- **Check which branch you're on** - Run `git branch --show-current` before starting work
+- **Check related PRs and issues** - Use GitHub MCP tools to find context before implementing
+- **Look for existing utility functions** in `shared/` before writing new ones (auth, queue, registry)
+
+## Tinybird Deployment Safety
+
+**CRITICAL — These rules apply whenever deploying to Tinybird:**
+
+- **Always validate first**: `tb --cloud deploy --check --wait` before any deploy
+- **Never use `--allow-destructive-operations`** without explicit user permission
+- **Never use `tb push`** — it's deprecated; use `tb --cloud deploy --wait`
+- **Always use `--cloud`** — without it, CLI tries Tinybird Local (Docker)
+- **Run from `enter.pollinations.ai/observability`** — not from repo root
+- **Pipes are shared** — multiple apps/dashboards may consume the same pipe. Verify all consumers before modifying any pipe
+- **Timeout mitigation**: Use `uniq()` over `uniqExact()`, avoid CTE+JOIN, prefer single-pass queries. For large time ranges, use `start_date` parameter pattern for week-by-week querying
+- Full deploy procedure: see `.claude/skills/tinybird-deploy/SKILL.md`
+
+## Common Mistakes to Avoid
+
+**IMPORTANT - Agents often make these mistakes (learned from session history):**
+
+- **Don't use `cd` in bash commands** - Use the `cwd` parameter instead
+- **Don't run `pytest`** - Use `npm run test` or `npx vitest run`
+- **Don't create .md documentation files** unless explicitly asked
+- **Always use absolute paths** for file operations
+- **Don't edit files manually during a Claude Code session** - this busts the cache
+- **Don't run `/compact`** unless absolutely necessary - it busts cache
+- **Don't let searches run wild** - Use targeted file paths, not broad searches
+- **Don't modify test files to make tests pass** - Fix the actual code instead
+- **Run `npm run decrypt-vars`** before running tests in enter.pollinations.ai
+- **Check `.testingtokens`** file for test API keys: `enter.pollinations.ai/.testingtokens`
+- **Confirm which branch you're on** before making changes — branch mix-ups are a recurring problem
+- **Don't reimplement existing logic** — search for existing functions before writing new ones (e.g. SSE parsing, retry wrappers, auth extraction)
+- **Request PR reviews by mentioning `polly`** — include lowercase `polly` in a PR comment (e.g. "polly please review") to trigger the Polly bot reviewer
 
 ## Development Guidelines
 
 1. Code Style:
 
-    - Use modern JavaScript/TypeScript features
-    - Use ES modules (import/export) - all .js files are treated as ES modules
-    - Follow existing code formatting patterns
-    - Add descriptive comments for complex logic
+   - Use modern JavaScript/TypeScript features
+   - Use ES modules (import/export) - all .js files are treated as ES modules
+   - Follow existing code formatting patterns
+   - Add descriptive comments for complex logic
+   - **Run biome check** after making changes: `npx biome check --write <file>`
 
 2. Testing:
 
-    - Add tests for new features in appropriate test directories
-    - Follow existing test patterns in /test directories
-    - **Test with real production code, not mocks** - Tests should validate actual behavior
-    - Avoid creating mock infrastructure - use direct function imports instead
+   - Add tests for new features in appropriate test directories
+   - Follow existing test patterns in /test directories
+   - **Test with real production code, not mocks** - Tests should validate actual behavior
+   - Avoid creating mock infrastructure - use direct function imports instead
+
+   **Test Commands by Service:**
+   - **enter.pollinations.ai**: `cd enter.pollinations.ai && npm run test` (vitest + Cloudflare Workers pool)
+   - **image.pollinations.ai**: `cd image.pollinations.ai && npm run test` (vitest)
+   - **text.pollinations.ai**: No test runner configured yet
+
+   **⚡ Run tests individually** - Full suite takes time. Use:
+   ```bash
+   npx vitest run --testNamePattern="specific test name"
+   npx vitest run test/specific-file.test.ts
+   ```
+
+   **Snapshot System:** enter.pollinations.ai uses VCR-style snapshots for API responses:
+   - Snapshots stored in test fixtures, replayed during tests
+   - Set `TEST_VCR_MODE=record` to record new snapshots
+   - Default mode is `replay-or-record`
+
+   **Testing Tokens:** `enter.pollinations.ai/.testingtokens` contains:
+   - `ENTER_API_TOKEN_LOCAL` / `ENTER_API_TOKEN_REMOTE` - API keys
+   - `ENTER_TOKEN`, `GITHUB_TOKEN`, `POLAR_ACCESS_TOKEN`
+
+   **Testing Best Practices:**
+   - Read existing tests entirely to understand patterns before adding new ones
+   - Prefer adding to existing test files over creating new ones
+   - Test core functionality - minimal, short, and sweet
+   - Don't create new testing patterns - follow existing conventions
+   - Make requests to `gen.pollinations.ai` for production API testing
 
 3. Documentation:
 
-    - Update API docs for new endpoints
-    - Add JSDoc comments for new functions
-    - Update README.md for user-facing changes
-    - **Avoid creating markdown documentation files while working** unless explicitly requested
-    - If temporary files are needed for testing/debugging, create them in a `temp/` folder clearly labeled as temporary
+   - Update API docs for new endpoints
+   - Add JSDoc comments for new functions
+   - Update README.md for user-facing changes
+   - **Avoid creating markdown documentation files while working** unless explicitly requested
+   - If temporary files are needed for testing/debugging, create them in a `temp/` folder clearly labeled as temporary
 
-4. YAGNI Principle (You Aren't Gonna Need It):
+4. Architecture Considerations:
 
-    - **Don't keep code for "potential futures"** - Only implement what's needed now
-    - Remove unused functions, even if they "might be useful someday"
-    - If we need something later, we'll add it when we actually need it
-    - Example: Don't create test utilities or helper functions "just in case"
-    - Keep the codebase minimal and focused on current requirements
-
-5. Architecture Considerations:
-
-    - Frontend changes should be in pollinations.ai/
-    - Image generation in image.pollinations.ai/
-    - Text generation in text.pollinations.ai/
-    - React components in pollinations-react/
-    - AI assistant integrations in model-context-protocol/
+   - Frontend changes should be in pollinations.ai/
+   - Image generation in image.pollinations.ai/
+   - Text generation in text.pollinations.ai/
+   - SDK and React components in packages/sdk/
+   - AI assistant integrations in packages/mcp/
 
 6. Security:
-    - Never expose API keys or secrets
-    - Use environment variables for sensitive data
-    - Implement proper input validation
+   - Never expose API keys or secrets
+   - Use environment variables for sensitive data
+   - Implement proper input validation
 
 ## Common Tasks
 
 1. Adding New Models:
 
-    - Update models list in respective service
-    - Add model configuration
-    - Update API documentation
+   - **Text models**: Add config in `text.pollinations.ai/configs/modelConfigs.ts`, add entry in `availableModels.ts`
+   - **Image models**: Add handler in `image.pollinations.ai/src/`, register in `shared/registry/image.ts`
+   - Provider configs (Portkey, Bedrock, OpenAI-compatible) go in `text.pollinations.ai/configs/providerConfigs.js`
+   - Update API documentation and model registry
 
 2. Frontend Updates:
 
-    - Follow React best practices
-    - Use existing UI components
-    - Maintain responsive design
+   - Follow React best practices
+   - Use existing UI components
+   - Maintain responsive design
 
 3. API Changes:
 
-    - Maintain backward compatibility
-    - Update documentation
-    - Add appropriate error handling
+   - Maintain backward compatibility
+   - Update documentation
+   - Add appropriate error handling
 
 4. API Documentation Guidelines:
-    - Keep documentation strictly technical and user-focused
-    - Avoid marketing language or promotional content
-    - Link to dynamic endpoints (like /models) rather than hardcoding lists that may change
-    - Don't include internal implementation details or environment variables
-    - Focus on endpoints, parameters, and response formats
-    - For new features, document both simplified endpoints and OpenAI-compatible endpoints
-    - Include minimal, clear code examples that demonstrate basic usage
+   - Keep documentation strictly technical and user-focused
+   - Avoid marketing language or promotional content
+   - Link to dynamic endpoints (like /models) rather than hardcoding lists that may change
+   - Don't include internal implementation details or environment variables
+   - Focus on endpoints, parameters, and response formats
+   - For new features, document both simplified endpoints and OpenAI-compatible endpoints
+   - Include minimal, clear code examples that demonstrate basic usage
+
+## Workflow Orchestration
+
+### 1. Plan Mode Default
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+- If something goes sideways, STOP and re-plan immediately – don't keep pushing
+- Use plan mode for verification steps, not just building
+- Write detailed specs upfront to reduce ambiguity
+
+### 2. Subagent Strategy
+- Use subagents liberally to keep main context window clean
+- Offload research, exploration, and parallel analysis to subagents
+- For complex problems, throw more compute at it via subagents
+- One task per subagent for focused execution
+
+### 3. Self-Improvement Loop
+- After ANY correction from the user: propose an update to this `AGENTS.md` with the learned pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review AGENTS.md at session start for relevant project
+
+### 4. Verification Before Done
+- Never mark a task complete without proving it works
+- Diff behavior between main and your changes when relevant
+- Ask yourself: "Would a staff engineer approve this?"
+- Run tests, check logs, demonstrate correctness
+
+### 5. Demand Elegance (Balanced)
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+- Skip this for simple, obvious fixes – don't over-engineer
+- Challenge your own work before presenting it
+
+### 6. Autonomous Bug Fixing
+- When given a bug report: just fix it. Don't ask for hand-holding
+- Point at logs, errors, failing tests – then resolve them
+- Zero context switching required from the user
+- Go fix failing CI tests without being told how
+
+## Task Management
+
+1. **Plan First**: Outline steps before implementing (use todo tools or plan mode)
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Capture Lessons**: When corrected, update this AGENTS.md with the pattern to prevent recurrence
+
+## Compact Instructions
+
+When compacting conversation context, preserve:
+- Full list of modified files with paths and line numbers
+- All code snippets, diffs, and implementation details
+- Test output, error messages, and command results
+- Complete task plan, progress, and pending items
+- User preferences and corrections from this session
+- Key architectural decisions and their rationale
+
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
 # Git Workflow
 
--   If the user asks to send to git or something similar do all these steps:
--   Git status, diff, create branch, commit all, push and write a PR description
+- If the user asks to send to git or something similar do all these steps:
+- Git status, diff, create branch, commit all, push and write a PR description
+- **Verify branch before committing**: Run `git branch --show-current` and confirm with user if unsure — branch mix-ups have caused wasted work multiple times
+- **Avoid force pushes**: Prefer follow-up commits over `git push --force` or `--force-with-lease`. Force pushes rewrite history and can cause issues for others working on the same branch.
+- **Run biome check before committing**: `npx biome check --write <file>` to fix formatting/linting issues
+- **If PR was already merged**: Open a new branch/PR for follow-up changes, don't try to push to merged branches
 
 ## Communication Style
 
-**All PRs, comments, issues: bullet points, <200 words, no fluff**
+**BE CONCISE. All PRs, comments, issues: bullet points, <200 words, NO FLUFF.**
 
 **PR Format:**
+- Use "- Adds X", "- Fix Y" format
+- 3-5 bullets max
+- Simple titles: "fix:", "feat:", "Add"
+- No long paragraphs, no marketing language
 
--   Use "- Adds X", "- Fix Y" format
--   3-5 bullets for most PRs
--   Simple titles: "fix:", "feat:", "Add"
--   Reference: `repo:pollinations/pollinations author:eulervoid`
+**Issue Comments:**
+- Bullet points only
+- State facts, not opinions
+- Link to relevant code/files
+- No "I think" or "maybe" - be direct
+
+**Code Reviews:**
+- Focus on parts that need improving, not what's already good
+- Be concise and information-dense
+- Link to specific lines/files
+- Don't praise code that's fine
+- Don't repeat obvious things
 
 ## GitHub Labels
 
--   Only use established labels (check with `mcp1_list_issues`)
--   Avoid creating new labels unless part of broader strategy
--   Keep names consistent with existing patterns
+- Only use established labels (check with `mcp1_list_issues`)
+- Avoid creating new labels unless part of broader strategy
+- Keep names consistent with existing patterns
 
 ## Contributor Attribution
 
@@ -294,6 +474,6 @@ Co-authored-by: username <user_id+username@users.noreply.github.com>
 Fixes #issue
 ```
 
--   Use "Fixes #issue" or "Addresses #issue" in PR descriptions
--   Email format: `{username} <{user_id}+{username}@users.noreply.github.com>`
--   Find user_id in issue API response
+- Use "Fixes #issue" or "Addresses #issue" in PR descriptions
+- Email format: `{username} <{user_id}+{username}@users.noreply.github.com>`
+- Find user_id in issue API response

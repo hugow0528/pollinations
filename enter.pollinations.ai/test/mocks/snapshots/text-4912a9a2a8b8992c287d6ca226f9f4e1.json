@@ -15,20 +15,20 @@
       "access-control-allow-origin": "*",
       "cache-control": "public, max-age=31536000, immutable",
       "connection": "keep-alive",
-      "content-length": "168",
+      "content-length": "318",
       "content-type": "text/plain; charset=utf-8",
-      "date": "Thu, 11 Dec 2025 16:47:23 GMT",
-      "etag": "W/\"a8-DJgeUs5qs3qQ7rkcCiaTTg/itcU\"",
+      "date": "Mon, 05 Jan 2026 14:42:19 GMT",
+      "etag": "W/\"13e-6+DzyRQlT8B3O9T8RXfpT3J81Wk\"",
       "keep-alive": "timeout=5",
       "x-model-used": "amazon.nova-micro-v1:0",
       "x-powered-by": "Express",
-      "x-usage-completion-text-tokens": "42",
+      "x-usage-completion-text-tokens": "68",
       "x-usage-prompt-text-tokens": "262",
-      "x-usage-total-tokens": "304"
+      "x-usage-total-tokens": "330"
     },
     "body": {
       "type": "text",
-      "data": "Yes, Berlin is the capital of Germany. If you ever find yourself in the city and need tips on the best spots to check out, just let me know! There’s a lot to explore!"
+      "data": "Yes, Berlin is indeed the capital of Germany. Located in the eastern part of the country, it serves not just as the political and administrative center, but also as a vibrant hub for culture, technology, and the arts. With a rich history and a dynamic urban scene, it's a place where past and present merge seamlessly."
     }
   }
 }

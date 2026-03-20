@@ -23,22 +23,22 @@
     "headers": {
       "access-control-allow-origin": "*",
       "connection": "keep-alive",
-      "content-length": "588",
+      "content-length": "550",
       "content-type": "application/json; charset=utf-8",
-      "date": "Thu, 11 Dec 2025 16:46:05 GMT",
-      "etag": "W/\"24c-rL+6FPP/H266PrcLE9hLZeTtugw\"",
+      "date": "Mon, 05 Jan 2026 14:41:45 GMT",
+      "etag": "W/\"226-U9QzJwT/VhW1lVGYFM8Jnlkr/qA\"",
       "keep-alive": "timeout=5",
       "x-model-used": "amazon.nova-micro-v1:0",
       "x-powered-by": "Express",
-      "x-usage-completion-text-tokens": "57",
+      "x-usage-completion-text-tokens": "50",
       "x-usage-prompt-text-tokens": "262",
-      "x-usage-total-tokens": "319"
+      "x-usage-total-tokens": "312"
     },
     "body": {
       "type": "json",
       "data": {
-        "id": "pllns_76668764b166b8a74850aa08b077b24f",
-        "created": 1765471565,
+        "id": "pllns_c6284c343df69d0a1f9fe5bfa2307cf2",
+        "created": 1767624104,
         "model": "amazon.nova-micro-v1:0",
         "system_fingerprint": "fp",
         "choices": [
@@ -48,15 +48,15 @@
             "logprobs": null,
             "message": {
               "role": "assistant",
-              "content": "Absolutely, Berlin is the capital of Germany. So, yes, it is! This vibrant city is much more than just a political center; it's a hub of culture, history, and dynamic energy. Got any other questions or need some tips about exploring this fascinating city?"
+              "content": "Yes, Berlin is the capital of Germany. It's a fascinating city with a rich history and a vibrant cultural scene. If you're ever curious about its significance or the many landmarks, I'd be here for some detailed chat."
             }
           }
         ],
         "object": "chat.completion",
         "usage": {
           "prompt_tokens": 262,
-          "completion_tokens": 57,
-          "total_tokens": 319
+          "completion_tokens": 50,
+          "total_tokens": 312
         }
       }
     }

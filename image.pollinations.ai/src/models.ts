@@ -1,5 +1,5 @@
 // Import registry for model names and tier validation
-import { type ImageServiceId } from "../../shared/registry/image.ts";
+import type { ImageServiceId } from "../../shared/registry/image.ts";
 
 /**
  * Image/Video-specific configuration for each model
@@ -23,12 +23,6 @@ type ImageModelsConfig = {
 };
 
 export const IMAGE_CONFIG = {
-    flux: {
-        type: "pollinations",
-        enhance: true,
-        defaultSideLength: 768,
-    },
-
     // Azure Flux Kontext - general purpose model
     kontext: {
         type: "kontext",
@@ -36,31 +30,39 @@ export const IMAGE_CONFIG = {
         defaultSideLength: 1024,
     },
 
-    // Assuming 'turbo' is of type 'sd'
-    turbo: {
-        type: "pollinations",
-        enhance: true,
-        defaultSideLength: 768,
+    // ByteDance ARK Seedream 5.0 Lite - web search, reasoning
+    seedream5: {
+        type: "seedream5",
+        enhance: false,
+        defaultSideLength: 2048,
+        minPixels: 3686400, // Seedream 5.0 requires at least 1920x1920 pixels
     },
 
-    // ByteDance ARK Seedream 4.0 - better quality (default)
+    // Legacy (hidden): real Seedream 4.0
     seedream: {
         type: "seedream",
         enhance: false,
-        defaultSideLength: 1024, // Seedream 4.0 standard resolution
+        defaultSideLength: 1024,
     },
 
-    // ByteDance ARK Seedream 4.5 Pro - high quality 4K image generation
+    // Legacy (hidden): real Seedream 4.5 Pro
     "seedream-pro": {
         type: "seedream-pro",
         enhance: false,
-        defaultSideLength: 2048, // Seedream 4.5 supports up to 4K
+        defaultSideLength: 2048,
         minPixels: 3686400, // Seedream 4.5 requires at least 1920x1920 pixels
     },
 
     // Gemini 2.5 Flash Image via Vertex AI - image-to-image generation
     nanobanana: {
         type: "vertex-ai",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Gemini 3.1 Flash Image via Vertex AI - faster flash with pro-level quality (Nano Banana 2)
+    "nanobanana-2": {
+        type: "vertex-ai-2",
         enhance: false,
         defaultSideLength: 1024,
     },
@@ -78,6 +80,13 @@ export const IMAGE_CONFIG = {
         type: "azure",
         enhance: false,
         defaultSideLength: 1021, // Prime number to detect default size for "auto" mode
+    },
+
+    // Azure GPT Image 1.5 - advanced image generation
+    "gptimage-large": {
+        type: "azure-gptimage-large",
+        enhance: false,
+        defaultSideLength: 1024,
     },
 
     // Veo 3.1 Fast - Video generation via Vertex AI
@@ -110,27 +119,116 @@ export const IMAGE_CONFIG = {
         defaultResolution: "720p",
     },
 
-    // Z-Image-Turbo - Fast 6B parameter image generation (self-hosted)
+    // Alibaba Wan 2.6 - Video generation with audio
+    wan: {
+        type: "alibaba-dashscope-video",
+        enhance: false,
+        isVideo: true,
+        defaultDuration: 5,
+        maxDuration: 15,
+        defaultResolution: "720p",
+    },
+
+    // Z-Image - Fast 6B parameter image generation with SPAN 2x upscaling (IO.net)
     zimage: {
         type: "zimage",
         enhance: false,
         defaultSideLength: 1024,
     },
-} as const satisfies ImageModelsConfig;
 
-/**
- * Legacy MODELS export for backward compatibility
- * Combines registry data with local config (enhance, defaultSideLength)
- * @deprecated Use IMAGE_SERVICES from registry, IMAGE_CONFIG for implementation details
- */
-export const MODELS = Object.fromEntries(
-    Object.entries(IMAGE_CONFIG).map(([name, config]) => [
-        name,
-        {
-            ...config,
-        },
-    ]),
-) as Record<ImageServiceId, ImageModelConfig>;
+    // Flux Schnell - Fast high-quality image generation (IO.net, nunchaku-quantized)
+    flux: {
+        type: "flux",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Klein - Fast 4B parameter model on Modal (text-to-image + image editing)
+    klein: {
+        type: "modal-klein",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Flux 2 Dev - Next-gen Flux image generation via api.airforce
+    "flux-2-dev": {
+        type: "airforce",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Imagen 4 - Google's latest image generation via api.airforce
+    "imagen-4": {
+        type: "airforce",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Grok Imagine - xAI image generation via api.airforce
+    "grok-imagine": {
+        type: "airforce",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Dirtberry - Quick realistic image generation via api.airforce
+    "dirtberry": {
+        type: "airforce",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Dirtberry Pro - High quality realism, pixel art & complex scenes via api.airforce
+    "dirtberry-pro": {
+        type: "airforce",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Grok Imagine Video - xAI video generation via api.airforce
+    "grok-video": {
+        type: "airforce-video",
+        enhance: false,
+        isVideo: true,
+        defaultDuration: 5,
+        maxDuration: 10,
+        defaultResolution: "720p",
+    },
+
+    // LTX-2 - Fast video generation with audio on Modal
+    "ltx-2": {
+        type: "modal-ltx2",
+        enhance: false,
+        isVideo: true,
+        defaultDuration: 5, // 121 frames at 24 FPS
+        maxDuration: 10, // 241 frames
+        defaultResolution: "720p",
+    },
+
+    // Pruna p-image - Text-to-image generation
+    "p-image": {
+        type: "pruna",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Pruna p-image-edit - Image-to-image editing
+    "p-image-edit": {
+        type: "pruna-edit",
+        enhance: false,
+        defaultSideLength: 1024,
+    },
+
+    // Pruna p-video - Text/image-to-video generation
+    "p-video": {
+        type: "pruna-video",
+        enhance: false,
+        isVideo: true,
+        defaultDuration: 5,
+        maxDuration: 10,
+        defaultResolution: "720p",
+    },
+} as const satisfies ImageModelsConfig;
 
 /**
  * Scale up dimensions to meet minimum pixel requirements while preserving aspect ratio
@@ -169,7 +267,9 @@ export function getScaledDimensions(
     width: number,
     height: number,
 ): { width: number; height: number } {
-    const config = MODELS[modelName as ImageServiceId];
+    const config = IMAGE_CONFIG[
+        modelName as ImageServiceId
+    ] as ImageModelConfig;
     if (!config?.minPixels) {
         return { width, height };
     }

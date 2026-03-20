@@ -1,8 +1,7 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
 import debug from "debug";
 import PQueue from "p-queue";
-import { IncomingMessage, ServerResponse } from "node:http";
 
-const logError = debug("pollinations:error");
 const logServer = debug("pollinations:server");
 
 type Server = {
@@ -31,14 +30,10 @@ type ServerInfo = {
 const SERVERS = {
     flux: [] as Server[],
     translate: [] as Server[],
-    turbo: [] as Server[],
     zimage: [] as Server[],
 };
 
 const SERVER_TIMEOUT = 45000; // 45 seconds
-const MAIN_SERVER_URL =
-    process.env.POLLINATIONS_MASTER_URL ||
-    "https://image.pollinations.ai/register";
 
 const concurrency = 2;
 
@@ -80,7 +75,6 @@ function serverQueueInfo(servers: ServerMap): ServerInfo[] {
         return servers.map((server) => serverInfo(server, type as ServerType));
     });
 }
-//            console.table(serverQueueInfo);
 
 // Decay errors every minute
 setInterval(decayErrors, 60 * 1000); // Every 1 minute
@@ -148,10 +142,6 @@ export const getNextServerUrl = async (
     type: ServerType = "flux",
 ): Promise<string> => {
     const servers = SERVERS[type] || [];
-    if (servers.length === 0) {
-        await fetchServersFromMainServer();
-    }
-
     const activeServers = filterActiveServers(servers);
     if (activeServers.length === 0) {
         throw new Error(`No active ${type} servers available`);
@@ -174,46 +164,7 @@ export const getNextServerUrl = async (
     return selectedServer.url;
 };
 
-// Wrapper functions for backward compatibility
-export const getNextFluxServerUrl = () => getNextServerUrl("flux");
 export const getNextTranslationServerUrl = () => getNextServerUrl("translate");
-export const getNextTurboServerUrl = () => getNextServerUrl("turbo");
-
-/**
- * Fetches the list of available servers from the main server.
- */
-async function fetchServersFromMainServer() {
-    try {
-        logServer(
-            `[${new Date().toISOString()}] Fetching servers from ${MAIN_SERVER_URL}...`,
-        );
-
-        const response = await fetch(MAIN_SERVER_URL);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const servers = await response.json();
-
-        logServer(
-            `[${new Date().toISOString()}] Received ${servers.length} servers from main server:`,
-        );
-        servers.forEach((server: ServerInfo, index: number) => {
-            logServer(`  ${index + 1}. ${server.url}`);
-        });
-
-        servers.forEach((server: ServerInfo) => {
-            registerServer(server.url, server.type);
-        });
-        logServer(
-            `[${new Date().toISOString()}] Successfully initialized ${Object.values(SERVERS).flat().length} servers`,
-        );
-    } catch (error) {
-        logError(
-            `[${new Date().toISOString()}] Failed to fetch servers from main server:`,
-            error,
-        );
-    }
-}
 
 /**
  * Handles the /register endpoint requests.
@@ -259,12 +210,6 @@ export const handleRegisterEndpoint = (
             ([type, servers]) =>
                 servers.map((server) => serverInfo(server, type as ServerType)),
         );
-        // res.writeHead(200, {
-        //     'Content-Type': 'application/json',
-        //     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        //     'Pragma': 'no-cache',
-        //     'Expires': '0'
-        // });
         res.end(JSON.stringify(availableServersInfo));
     } else {
         res.end(
@@ -282,7 +227,6 @@ export const filterActiveServers = (servers: Server[]): Server[] => {
     const now = Date.now();
     return servers.filter(
         (server) => now - server.lastHeartbeat < SERVER_TIMEOUT,
-        // && server.url.includes('23.23.212.46')
     );
 };
 
@@ -298,7 +242,7 @@ export const fetchFromLeastBusyServer = async (
 ): Promise<Response> => {
     const maxRetries = 3; // Try up to 3 different servers
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const serverUrl = await getNextServerUrl(type);
         const server = SERVERS[type].find((s) => s.url === serverUrl);
@@ -312,26 +256,37 @@ export const fetchFromLeastBusyServer = async (
                 async () => {
                     server.totalRequests++;
                     try {
-                        const response = await fetch(`${serverUrl}/generate`, options);
+                        const response = await fetch(
+                            `${serverUrl}/generate`,
+                            options,
+                        );
                         if (!response.ok) {
                             server.errors++;
-                            
+
                             // Capture detailed error information
-                            let errorBody = '';
+                            let errorBody = "";
                             try {
                                 errorBody = await response.text();
-                            } catch (e) {
-                                errorBody = 'Could not read error response body';
+                            } catch (_e) {
+                                errorBody =
+                                    "Could not read error response body";
                             }
-                            
-                            console.error(`[${type}] Server ${serverUrl} returned ${response.status}:`, {
-                                status: response.status,
-                                statusText: response.statusText,
-                                headers: Object.fromEntries(response.headers.entries()),
-                                body: errorBody.substring(0, 500) // Limit to first 500 chars
-                            });
-                            
-                            throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody.substring(0, 200)}`);
+
+                            console.error(
+                                `[${type}] Server ${serverUrl} returned ${response.status}:`,
+                                {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    headers: Object.fromEntries(
+                                        response.headers.entries(),
+                                    ),
+                                    body: errorBody.substring(0, 500), // Limit to first 500 chars
+                                },
+                            );
+
+                            throw new Error(
+                                `HTTP error! status: ${response.status}, body: ${errorBody.substring(0, 200)}`,
+                            );
                         }
                         return response;
                     } catch (error) {
@@ -347,20 +302,22 @@ export const fetchFromLeastBusyServer = async (
             );
         } catch (error) {
             lastError = error as Error;
-            
+
             // Only retry on 500 errors
-            if (error.message && error.message.includes('status: 500')) {
-                console.error(`[${type}] Attempt ${attempt + 1}/${maxRetries} failed with 500 error, trying different server...`);
+            if (error.message?.includes("status: 500")) {
+                console.error(
+                    `[${type}] Attempt ${attempt + 1}/${maxRetries} failed with 500 error, trying different server...`,
+                );
                 continue;
             }
-            
+
             // For non-500 errors, throw immediately
             throw error;
         }
     }
-    
+
     // If we exhausted all retries, throw the last error
-    throw lastError || new Error('All server attempts failed');
+    throw lastError || new Error("All server attempts failed");
 };
 
 // Wrapper for backward compatibility

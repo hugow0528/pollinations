@@ -1,85 +1,109 @@
 # FAQ
 
-## What is Pollen?
+## 💎 What is Pollen?
 
-Pollen is our prepaid credit system. **$1 ≈ 1 Pollen** (pricing may evolve). You spend it to make API calls.
+Pollen is our **prepaid credit system**. **$1 ≈ 1 Pollen** *(pricing may evolve)*.
 
-## How do I get Pollen?
+⚡ You spend Pollen to make API calls — every generation costs Pollen based on the model you use.
 
-There are three ways to add Pollen to your balance:
+## 🧩 Is Pollinations a coding tool or app builder?
 
-1.  **Buy It:** Purchase Pollen packs directly with a credit card. This Pollen goes into your wallet and never expires. (Want other payment options? [Vote here](https://github.com/pollinations/pollinations/issues/4826)!)
-2.  **Get Daily Pollen:** During and after beta, registered developers receive daily Pollen grants to support experimentation based on their tier _(spore, seed, flower, or nectar)_.
-3.  **Earn It:** Complete one-time community rewards, like helping solve a technical issue or contributing to the project.
+**No.** Pollinations is not a code editor, no-code builder, or app development platform like Lovable, Bolt, or Cursor. We provide the **building blocks** that creators integrate into their own apps:
 
-## What payment methods do you accept?
+- 🤖 **AI Generation APIs** — Access 38+ models (text, image, audio, video) through a single API
+- 💰 **Payment Infrastructure** — Let your app's users pay per use with Pollen credits, so you don't foot the compute bill
+- 📊 **Monetization Tools** — Revenue share (launching Q2), and soon ads SDK — everything you need to earn from your app
 
-Currently, we accept credit cards. We're actively exploring other payment methods based on community feedback.
+🔧 You build the app your way — with any framework, any tool, any language. Plug in Pollinations for the AI capabilities and the monetization. We're the **engine and the cash register**, not the workshop.
 
-**Want other payment options?** Vote on what you'd like to see next in our [payment methods voting issue](https://github.com/pollinations/pollinations/issues/4826) — crypto, PayPal, Alipay, and more!
+## 🛒 How do I get Pollen?
 
-## Is there a monthly subscription?
+There are **three ways**:
 
-Not yet, but we're considering it based on community feedback. Check out the [voting issue](https://github.com/pollinations/pollinations/issues/2202) to share your thoughts or join our [Discord](https://discord.gg/pollinations-ai-885844321461485618) for updates.
+1. 💳 **Buy It** — Purchase Pollen packs with a credit card. Goes into your wallet and *never expires*. *(Want other payment options? [Vote here](https://github.com/pollinations/pollinations/issues/4826)!)*
+2. 🎁 **Grants** — All tiers receive free Pollen that refills hourly or daily depending on tier.
+3. 🏆 **Earn It** — Contribute to the ecosystem — code, docs, community support, publishing apps — and unlock higher tiers with bigger grants.
 
-## Can I try it without signing up?
+## 🆓 Can I try it for free?
 
-Not currently. You need to register and use an API key to access our models. All API calls require authentication and consume Pollen based on the model you use.
+**Yes!** Register, grab an API key, and start building — **no credit card required**.
 
-## What do I get when I register?
+- ✅ Every account gets **free Pollen** that refills hourly
+- 📈 Contribute to unlock higher tiers with **bigger grants** (up to 20 pollen/day)
 
-Registration gives you access to the Pollinations API and the **Spore tier**, which includes daily Pollen\* to get you started. Once registered, you can **create API keys** to start making requests.
+## 💳 What payment methods do you accept?
 
-\*During beta only - subject to change
+Currently **credit cards** via Stripe. We're actively exploring more options based on community feedback.
 
-- **Publishable Key (pk\_):** Designed for client-side apps (bound to your domain). Rate limits: 3 requests/burst, 1 refill per 15 sec (~4 req/min). Access to all models, which consume Pollen based on usage.
-- **Secret Key (sk\_):** For server-side apps only. No rate limits. Access to all models, which consume Pollen based on usage.
+🗳️ **Want to pay differently?** Vote for your preferred method in our [payment methods issue](https://github.com/pollinations/pollinations/issues/4826) — crypto, PayPal, Alipay, and more!
 
-## How do daily Pollen grants work?
+## 📅 Is there a monthly subscription?
 
-You receive a daily Pollen grant based on your tier. Daily Pollen is spent before your purchased Pollen. Unused Pollen expires each day.
+**Not yet** — but we're considering it based on community feedback.
 
-💚 **Thanks to our supporters**, all tiers receive free daily Pollen during beta.
+💬 Share your thoughts in the [voting issue](https://github.com/pollinations/pollinations/issues/2202) or join our [Discord](https://discord.gg/pollinations-ai-885844321461485618) for updates!
 
-## What can I create with Pollen?
+## 🎉 What do I get when I register?
 
-Think of Pollen like buying in bulk — the more efficient the model, the more you get! (**$1 ≈ 1 Pollen**)
+Registration gives you **instant access** to the Pollinations API. Create API keys and start making requests right away:
 
-**🎨 Image Generation:**
+- **🌐 Publishable Key (pk\_):** For client-side apps *(bound to your domain)*. Rate limits: **1 pollen per IP per hour**.
+- **🔒 Secret Key (sk\_):** For server-side apps only. **No rate limits.**
 
-- **Flux** — 8,300 images per Pollen (ultra-efficient for bulk!)
-- **Turbo** — 3,300 images per Pollen (fast generation)
-- **GPTImage** — 125 images per Pollen (vision-capable, higher quality)
-- **Seedream** — 33 images per Pollen (premium quality)
-- **Kontext** — 25 images per Pollen (advanced editing)
+🎁 All registered accounts get **free Pollen** refilled hourly — no purchase required. Active creators unlock higher tiers with bigger grants.
 
-**💬 Text Generation** _(~600 token conversations)_:
+## 👛 How does my Pollen wallet work?
 
-- **Mistral Small** — 5,900 conversations per Pollen (super efficient)
-- **GPT-5 Nano** — 5,300 conversations per Pollen (vision-capable!)
-- **Gemini 2.5 Flash** — 3,800 conversations per Pollen (fast & smart)
-- **DeepSeek V3.1** — 445 conversations per Pollen (advanced reasoning)
-- **Claude Sonnet 4.5** — 150 conversations per Pollen (top-tier quality)
+You get **one central wallet** for all your applications. It holds two types of Pollen:
 
-**💡 Real-World Examples:**
+- 🔄 **Tier Pollen** — Free pollen from your tier, refilled automatically (hourly or daily depending on tier). Does not carry over between refills.
+- 💎 **Purchased Pollen** — From packs you've bought. **Never expires.** Top up anytime.
 
-- **1 Pollen** = 8,000+ Flux images OR 5,900 Mistral chats
-- **10 Pollen ($10)** = 83,000 Flux images OR 59,000 Mistral chats — enough to power an app for months!
+⚡ Tier Pollen is always spent **first**, then purchased Pollen kicks in. Some models marked with 💎 **Paid Only** require purchased Pollen and skip tier grants.
 
-**Pro tip:** Mix efficient models for high-volume tasks with premium models when quality matters most.
+⏰ Pollen refills every hour for Spore/Seed tiers. If a request costs slightly more than estimated, your balance may go briefly negative — the **next refill covers the difference** automatically.
 
-_For exact token-based pricing, check your [dashboard](https://enter.pollinations.ai)._
+## 🏅 What are tiers?
 
-## How does my Pollen wallet work?
+| Tier | Pollen | Refill |
+|------|--------|--------|
+| 🍄 Spore | 0.01/hour | Hourly |
+| 🌱 Seed | 0.15/hour | Hourly |
+| 🌸 Flower | 10/day | Daily (midnight UTC) |
+| 🍯 Nectar | 20/day | Daily (midnight UTC) |
 
-You get one central Pollen wallet for all your applications. Top it up anytime and use it across the entire Pollinations ecosystem.
+Everyone starts at Spore. The more you build and contribute, the bigger your grants:
+- **Seed** — Automatic, based on GitHub activity (8+ dev points)
+- **Flower** — Publish an app to the showcase
+- **Nectar** — Coming soon
 
-## What's coming?
+## 🔌 What is BYOP (Bring Your Own Pollen)?
 
-- **Secure front-end spending:** We are building a solution to allow client-side apps to spend Pollen securely, which will power features like in-app purchases.
-- **In-app purchases** — let your users buy Pollen in your app, you get a bonus.
-- **Ads plugin** — earn Pollen when users see ads.
-- **More models:** Expect video, real-time audio, and an ever-expanding catalog.
-- **Quests:** Earn Pollen by completing community bounties and contributing to projects.
+BYOP lets your app's users **pay for their own AI generations** with their Pollen — instead of it coming out of *your* balance.
 
-(Plans may change based on what the community needs)
+🚀 **Why it matters:** Without BYOP, every user of your app burns *your* Pollen. With BYOP, your **compute cost drops to zero**. Your users get a seamless experience, and you can scale without worrying about costs.
+
+🔄 Every user on the platform gets free Pollen refilled hourly. With BYOP, they spend that Pollen in *your* app — the **Pollinations flywheel**: build an app for free → integrate BYOP → your users arrive with Pollen → they fuel the app → you grow → bigger grants → build bigger.
+
+📖 **[Full BYOP guide →](https://github.com/pollinations/pollinations/blob/main/BRING_YOUR_OWN_POLLEN.md)**
+
+## 🎨 What can I create with Pollen?
+
+Anything you can imagine — **text**, **images**, **audio**, and **video**, all from one API.
+
+- ✍️ Generate text with 30+ language models
+- 🖼️ Create images with Flux, Turbo, and more
+- 🎵 Text-to-speech, music generation
+- 🎬 Video generation with Wan, Veo, LTX
+
+💡 **Pro tip:** Mix efficient models for high-volume tasks with high-quality models when it matters most.
+
+## 🚀 What's coming?
+
+- 🧮 **Scoring System** — Tiers will be based on a transparent score — GitHub activity, API usage, apps shipped, and community contributions.
+- 🔑 **Pollinations Login** — OAuth sign-in for your users. Token handling and production-ready auth.
+- 🏠 **App Hosting** — Ship your app on our infra. No deploy setup, no separate hosting bill.
+- 🌻 **Creator Rewards** — Get recognized for what people build with your app.
+- 🗺️ **App Discovery** — A marketplace where users find your app.
+
+🌱 Plans change. We build in the open and figure it out as we go.

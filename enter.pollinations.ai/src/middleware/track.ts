@@ -1,63 +1,63 @@
-import { processEvents, storeEvents } from "@/events.ts";
+import { getLogger } from "@logtape/logtape";
+import type { Usage } from "@shared/registry/registry.ts";
 import {
-    getActivePriceDefinition,
     calculateCost,
     calculatePrice,
-    ServiceId,
-    ModelId,
-    UsageCost,
-    UsagePrice,
-    PriceDefinition,
+    getActivePriceDefinition,
     getServiceDefinition,
+    type ModelId,
+    type PriceDefinition,
+    type ServiceId,
+    type UsageCost,
+    type UsagePrice,
 } from "@shared/registry/registry.ts";
-import type { ModelVariables } from "./model.ts";
 import {
-    openaiUsageToTokenUsage,
+    openaiUsageToUsage,
     parseUsageHeaders,
 } from "@shared/registry/usage-headers.ts";
-import { routePath, baseRoutePath } from "hono/route";
-import {
-    CompletionUsage,
-    CompletionUsageSchema,
-    ContentFilterResult,
-    ContentFilterResultSchema,
-    ContentFilterSeveritySchema,
-} from "@/schemas/openai.ts";
-import { generateRandomId } from "@/util.ts";
-import { createMiddleware } from "hono/factory";
-import {
-    contentFilterResultsToEventParams,
-    priceToEventParams,
-    usageToEventParams,
-} from "@/db/schema/event.ts";
 import { drizzle } from "drizzle-orm/d1";
-import { HonoRequest } from "hono";
+import { EventSourceParserStream } from "eventsource-parser/stream";
+import type { HonoRequest } from "hono";
+import { createMiddleware } from "hono/factory";
+import { routePath } from "hono/route";
+import { z } from "zod";
+import { mergeContentFilterResults } from "@/content-filter.ts";
 import type {
     ApiKeyType,
     EventType,
     GenerationEventContentFilterParams,
     InsertGenerationEvent,
 } from "@/db/schema/event.ts";
-import type { AuthVariables } from "@/middleware/auth.ts";
-import { PolarVariables } from "./polar.ts";
-import { z } from "zod";
-import { TokenUsage } from "../../../shared/registry/registry.js";
-import { removeUnset } from "@/util.ts";
-import { EventSourceParserStream } from "eventsource-parser/stream";
-import { mergeContentFilterResults } from "@/content-filter.ts";
+import {
+    contentFilterResultsToEventParams,
+    priceToEventParams,
+    usageToEventParams,
+} from "@/db/schema/event.ts";
+import type { ErrorVariables } from "@/env.ts";
 import {
     getDefaultErrorMessage,
     getErrorCode,
     UpstreamError,
 } from "@/error.ts";
+import { sendToTinybird } from "@/events.ts";
+import type { AuthVariables } from "@/middleware/auth.ts";
+import {
+    type CompletionUsage,
+    CompletionUsageSchema,
+    type ContentFilterResult,
+    ContentFilterResultSchema,
+    ContentFilterSeveritySchema,
+} from "@/schemas/openai.ts";
+import { generateRandomId, removeUnset } from "@/util.ts";
+import { handleBalanceDeduction } from "@/utils/track-helpers.ts";
+import type { BalanceVariables } from "./balance.ts";
 import type { LoggerVariables } from "./logger.ts";
-import type { ErrorVariables } from "@/env.ts";
+import type { ModelVariables } from "./model.ts";
 import type { FrontendKeyRateLimitVariables } from "./rate-limit-durable.ts";
-import { getLogger } from "@logtape/logtape";
 
 export type ModelUsage = {
     model: ModelId;
-    usage: TokenUsage;
+    usage: Usage;
 };
 
 type RequestTrackingData = {
@@ -75,7 +75,7 @@ type ResponseTrackingData = {
     cacheData: CacheData;
     isBilledUsage: boolean;
     modelUsed?: string;
-    usage?: TokenUsage;
+    usage?: Usage;
     cost?: UsageCost;
     price?: UsagePrice;
     contentFilterResults?: GenerationEventContentFilterParams;
@@ -95,7 +95,7 @@ export type TrackEnv = {
     Variables: ErrorVariables &
         LoggerVariables &
         AuthVariables &
-        PolarVariables &
+        BalanceVariables &
         FrontendKeyRateLimitVariables &
         TrackVariables &
         ModelVariables;
@@ -105,10 +105,28 @@ export const track = (eventType: EventType) =>
     createMiddleware<TrackEnv>(async (c, next) => {
         const log = getLogger(["hono", "track"]);
         const startTime = new Date();
+        const db = drizzle(c.env.DB);
 
         // Get model from resolveModel middleware
         const modelInfo = c.var.model;
         const requestTracking = await trackRequest(modelInfo, c.req);
+
+        const rawIp = c.req.header("cf-connecting-ip");
+        const clientIp = rawIp ? stripIPv4MappedPrefix(rawIp) : undefined;
+        const ipSubnet = truncateIpToSubnet(clientIp);
+
+        const userTracking: UserData = {
+            userId: c.var.auth.user?.id,
+            userTier: c.var.auth.user?.tier,
+            userGithubId: c.var.auth.user?.githubId
+                ? String(c.var.auth.user.githubId)
+                : undefined,
+            userGithubUsername: c.var.auth.user?.githubUsername,
+            apiKeyId: c.var.auth.apiKey?.id,
+            apiKeyType: c.var.auth.apiKey?.metadata?.keyType as ApiKeyType,
+            apiKeyName: c.var.auth.apiKey?.name,
+        } satisfies UserData;
+
         let responseOverride = null;
 
         c.set("track", {
@@ -138,37 +156,27 @@ export const track = (eventType: EventType) =>
                     responseTracking.price?.totalPrice || 0,
                 );
 
-                const userTracking: UserData = {
-                    userId: c.var.auth.user?.id,
-                    userTier: c.var.auth.user?.tier,
-                    userGithubId: `${c.var.auth.user?.githubId}`,
-                    userGithubUsername: c.var.auth.user?.githubUsername,
-                    apiKeyId: c.var.auth.apiKey?.id,
-                    apiKeyType: c.var.auth.apiKey?.metadata
-                        ?.keyType as ApiKeyType,
-                    apiKeyName: c.var.auth.apiKey?.name,
-                } satisfies UserData;
-
+                // Capture balance tracking AFTER next() so balanceCheckResult is set
                 const balanceTracking = {
                     selectedMeterId:
-                        c.var.polar.balanceCheckResult?.selectedMeterId,
+                        c.var.balance.balanceCheckResult?.selectedMeterId,
                     selectedMeterSlug:
-                        c.var.polar.balanceCheckResult?.selectedMeterSlug,
-                    balances: Object.fromEntries(
-                        c.var.polar.balanceCheckResult?.meters.map((meter) => [
-                            meter.metadata.slug,
-                            meter.balance,
-                        ]) || [],
-                    ),
+                        c.var.balance.balanceCheckResult?.selectedMeterSlug,
+                    balances: c.var.balance.balanceCheckResult?.balances || {},
                 } satisfies BalanceData;
 
-                const event = createTrackingEvent({
+                const ipHash = await hashIp(clientIp, c.env.BETTER_AUTH_SECRET);
+
+                const finalEvent = createTrackingEvent({
+                    id: generateRandomId(),
                     requestId: c.get("requestId"),
                     requestPath: `${routePath(c)}`,
                     startTime,
                     endTime,
                     environment: c.env.ENVIRONMENT,
                     eventType,
+                    ipSubnet,
+                    ipHash,
                     userTracking,
                     balanceTracking,
                     requestTracking,
@@ -186,29 +194,26 @@ export const track = (eventType: EventType) =>
                         "  totalCost={event.totalCost}",
                         "  totalPrice={event.totalPrice}",
                     ].join("\n"),
-                    { event },
+                    { event: finalEvent },
                 );
-                const db = drizzle(c.env.DB);
-                await storeEvents(db, c.var.log, [event]);
 
-                // process events immediately in development/testing
-                if (
-                    ["test", "development", "local"].includes(c.env.ENVIRONMENT)
-                ) {
-                    log.trace(
-                        "Processing events immediately (ENVIRONMENT={environment})",
-                        { environment: c.env.ENVIRONMENT },
-                    );
-                    await processEvents(db, log.getChild("events"), {
-                        polarAccessToken: c.env.POLAR_ACCESS_TOKEN,
-                        polarServer: c.env.POLAR_SERVER,
-                        tinybirdIngestUrl: c.env.TINYBIRD_INGEST_URL,
-                        tinybirdIngestToken: c.env.TINYBIRD_INGEST_TOKEN,
-                        minBatchSize: 0, // process all events immediately
-                        minRetryDelay: 0, // don't wait between retries
-                        maxRetryDelay: 0, // don't wait between retries
-                    });
-                }
+                await sendToTinybird(
+                    finalEvent,
+                    c.env.TINYBIRD_INGEST_URL,
+                    c.env.TINYBIRD_GENERATION_INGEST_TOKEN,
+                    log,
+                );
+
+                // Handle balance deduction for both API keys and users
+                await handleBalanceDeduction({
+                    db,
+                    isBilledUsage: responseTracking.isBilledUsage,
+                    totalPrice: responseTracking.price?.totalPrice,
+                    userId: userTracking.userId,
+                    apiKeyId: c.var.auth?.apiKey?.id,
+                    apiKeyPollenBalance: c.var.auth?.apiKey?.pollenBalance,
+                    modelResolved: c.var.model?.resolved,
+                });
             })(),
         );
     });
@@ -259,6 +264,66 @@ async function trackResponse(
             isBilledUsage: false,
         };
     }
+
+    // For image generation, verify the response is actually an image
+    // Don't bill if the response is JSON/text (error response with HTTP 200)
+    if (eventType === "generate.image") {
+        const contentType = response.headers.get("content-type") || "";
+        if (
+            !contentType.startsWith("image/") &&
+            !contentType.startsWith("video/")
+        ) {
+            log.warn(
+                "Image generation returned non-image content-type: {contentType} for model {model}",
+                { contentType, model: resolvedModelRequested },
+            );
+            return {
+                responseOk: response.ok,
+                responseStatus: response.status,
+                cacheData: cacheInfo,
+                isBilledUsage: false,
+            };
+        }
+    }
+    // For text streaming, verify the response is actually SSE.
+    // Don't try SSE parsing if upstream returned JSON for a stream: true request.
+    if (eventType === "generate.text" && requestTracking.streamRequested) {
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("text/event-stream")) {
+            log.warn(
+                "Stream requested but upstream returned non-SSE content-type: {contentType} for model {model}",
+                { contentType, model: resolvedModelRequested },
+            );
+            return {
+                responseOk: response.ok,
+                responseStatus: response.status,
+                cacheData: cacheInfo,
+                isBilledUsage: false,
+            };
+        }
+    }
+    // For audio generation, verify the response content-type is expected.
+    // TTS returns audio/*, STT (whisper) returns application/json — both are valid.
+    if (eventType === "generate.audio") {
+        const contentType = response.headers.get("content-type") || "";
+        const isAudio = contentType.startsWith("audio/");
+        const isSTT =
+            contentType.startsWith("application/json") &&
+            getServiceDefinition(resolvedModelRequested as ServiceId)
+                ?.outputModalities?.[0] === "text";
+        if (!isAudio && !isSTT) {
+            log.warn(
+                "Audio generation returned unexpected content-type: {contentType} for model {model}",
+                { contentType, model: resolvedModelRequested },
+            );
+            return {
+                responseOk: response.ok,
+                responseStatus: response.status,
+                cacheData: cacheInfo,
+                isBilledUsage: false,
+            };
+        }
+    }
     const { modelUsage, contentFilterResults } =
         await extractUsageAndContentFilterResults(
             eventType,
@@ -266,7 +331,9 @@ async function trackResponse(
             response,
         );
     if (!modelUsage) {
-        log.error("Failed to extract model usage");
+        log.error("Failed to extract model usage for model {model}", {
+            model: resolvedModelRequested,
+        });
         return {
             responseOk: response.ok,
             responseStatus: response.status,
@@ -275,7 +342,11 @@ async function trackResponse(
             contentFilterResults,
         };
     }
-    const cost = calculateCost(modelUsage.model as ModelId, modelUsage.usage);
+    // Use service's canonical modelId for cost (not the provider's model ID from response)
+    const serviceModelId = getServiceDefinition(
+        resolvedModelRequested as ServiceId,
+    ).modelId;
+    const cost = calculateCost(serviceModelId as ModelId, modelUsage.usage);
     const price = calculatePrice(
         resolvedModelRequested as ServiceId,
         modelUsage.usage,
@@ -342,12 +413,15 @@ type BalanceData = {
 };
 
 type TrackingEventInput = {
+    id: string;
     requestId: string;
     requestPath: string;
     startTime: Date;
     endTime: Date;
     environment: string;
     eventType: EventType;
+    ipSubnet?: string;
+    ipHash?: string;
     userTracking: UserData;
     balanceTracking: BalanceData;
     requestTracking: RequestTrackingData;
@@ -356,12 +430,15 @@ type TrackingEventInput = {
 };
 
 function createTrackingEvent({
+    id,
     requestId,
     requestPath,
     startTime,
     endTime,
     environment,
     eventType,
+    ipSubnet,
+    ipHash,
     userTracking,
     balanceTracking,
     requestTracking,
@@ -369,7 +446,7 @@ function createTrackingEvent({
     errorTracking,
 }: TrackingEventInput): InsertGenerationEvent {
     return {
-        id: generateRandomId(),
+        id,
         requestId,
         requestPath,
         startTime,
@@ -378,6 +455,8 @@ function createTrackingEvent({
         responseStatus: responseTracking.responseStatus,
         environment,
         eventType,
+        ipSubnet,
+        ipHash,
 
         ...userTracking,
         ...requestTracking.referrerData,
@@ -409,8 +488,17 @@ async function extractStreamRequested(request: HonoRequest): Promise<boolean> {
         return z.safeParse(z.coerce.boolean(), stream).data || false;
     }
     if (request.method === "POST") {
-        const stream = (await request.json()).stream;
-        return z.safeParse(z.coerce.boolean(), stream).data || false;
+        const contentType = request.header("content-type") || "";
+        // Skip JSON parsing for multipart requests (e.g., audio transcription)
+        if (contentType.includes("multipart/form-data")) {
+            return false;
+        }
+        try {
+            const stream = (await request.json()).stream;
+            return z.safeParse(z.coerce.boolean(), stream).data || false;
+        } catch {
+            return false;
+        }
     }
     return false;
 }
@@ -472,8 +560,8 @@ async function extractUsageAndContentFilterResultsStream(
             .nullish(),
     });
 
-    let model = undefined;
-    let usage: CompletionUsage | undefined = undefined;
+    let model: string | undefined;
+    let usage: CompletionUsage | undefined;
     let promptFilterResults: ContentFilterResult = {};
     let completionFilterResults: ContentFilterResult = {};
 
@@ -523,7 +611,7 @@ async function extractUsageAndContentFilterResultsStream(
     return {
         modelUsage: {
             model: model as ModelId,
-            usage: openaiUsageToTokenUsage(usage),
+            usage: openaiUsageToUsage(usage),
         },
         contentFilterResults,
     };
@@ -537,10 +625,12 @@ async function extractUsageAndContentFilterResults(
     modelUsage: ModelUsage | null;
     contentFilterResults: GenerationEventContentFilterParams;
 }> {
+    const contentType = response.headers.get("content-type") || "";
     if (
         eventType === "generate.text" &&
         requestTracking.streamRequested &&
-        response.body instanceof ReadableStream
+        response.body instanceof ReadableStream &&
+        contentType.includes("text/event-stream")
     ) {
         const eventStream = extractResponseStream(response);
         return await extractUsageAndContentFilterResultsStream(eventStream);
@@ -642,6 +732,59 @@ const ContentFilterResultHeadersSchema = z
         moderationCompletionProtectedMaterialCodeDetected:
             headers["x-moderation-completion-protected-material-code-detected"],
     }));
+
+/** Salted SHA-256 hash of the full IP — irreversible without the salt. */
+async function hashIp(
+    ip: string | undefined,
+    salt: string,
+): Promise<string | undefined> {
+    if (!ip) return undefined;
+    const data = new TextEncoder().encode(`${salt}:${ip}`);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+/** Strip `::ffff:` prefix from IPv4-mapped IPv6 addresses. */
+function stripIPv4MappedPrefix(ip: string): string {
+    const match = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+    return match ? match[1] : ip;
+}
+
+/** Truncate IP to /24 subnet (IPv4) or /48 subnet (IPv6, first 3 groups). */
+function truncateIpToSubnet(ip: string | undefined): string | undefined {
+    if (!ip) return undefined;
+    const normalized = stripIPv4MappedPrefix(ip);
+    if (normalized.includes(".")) {
+        const parts = normalized.split(".");
+        if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+    }
+    if (normalized.includes(":")) {
+        const full = expandIPv6(normalized);
+        const groups = full.split(":");
+        return `${groups[0]}:${groups[1]}:${groups[2]}::`;
+    }
+    return undefined;
+}
+
+/** Expand IPv6 `::` shorthand to full 8-group form. */
+function expandIPv6(ip: string): string {
+    if (!ip.includes("::")) {
+        return ip
+            .split(":")
+            .map((g) => g.padStart(4, "0"))
+            .join(":");
+    }
+    const halves = ip.split("::");
+    const left = halves[0] ? halves[0].split(":") : [];
+    const right = halves[1] ? halves[1].split(":") : [];
+    const missing = 8 - left.length - right.length;
+    const middle = Array(missing).fill("0000");
+    return [...left, ...middle, ...right]
+        .map((g) => g.padStart(4, "0"))
+        .join(":");
+}
 
 type ErrorData = {
     errorResponseCode?: string;

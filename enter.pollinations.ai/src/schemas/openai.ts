@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import {
-    DEFAULT_TEXT_MODEL,
     AUDIO_VOICES,
+    DEFAULT_TEXT_MODEL,
 } from "../../../shared/registry/text.ts";
 
 const FunctionParametersSchema = z.record(z.string(), z.any());
@@ -85,7 +85,8 @@ const CacheControlSchema = z
     .object({
         type: z.enum(["ephemeral"]),
     })
-    .optional();
+    .optional()
+    .meta({ $id: "CacheControl" });
 
 const ChatCompletionRequestMessageContentPartTextSchema = z.object({
     type: z.literal("text"),
@@ -115,17 +116,19 @@ const ChatCompletionRequestMessageContentPartFileSchema = z.object({
     cache_control: CacheControlSchema,
 });
 
-const ChatCompletionRequestMessageContentPartSchema = z.union([
-    ChatCompletionRequestMessageContentPartTextSchema,
-    ChatCompletionRequestMessageContentPartImageSchema,
-    ChatCompletionRequestMessageContentPartVideoSchema,
-    ChatCompletionRequestMessageContentPartAudioSchema,
-    ChatCompletionRequestMessageContentPartFileSchema,
-    // Allow any other content types for provider-specific extensions
-    z
-        .object({ type: z.string() })
-        .passthrough(),
-]);
+const ChatCompletionRequestMessageContentPartSchema = z
+    .union([
+        ChatCompletionRequestMessageContentPartTextSchema,
+        ChatCompletionRequestMessageContentPartImageSchema,
+        ChatCompletionRequestMessageContentPartVideoSchema,
+        ChatCompletionRequestMessageContentPartAudioSchema,
+        ChatCompletionRequestMessageContentPartFileSchema,
+        // Allow any other content types for provider-specific extensions
+        z
+            .object({ type: z.string() })
+            .passthrough(),
+    ])
+    .meta({ $id: "MessageContentPart" });
 
 // Thinking (provider-specific; requires strict_openai_compliance=false)
 const ChatCompletionMessageContentPartThinkingSchema = z.object({
@@ -269,7 +272,10 @@ const ThinkingSchema = z
 
 export const CreateChatCompletionRequestSchema = z.object({
     messages: z.array(ChatCompletionRequestMessageSchema),
-    model: z.string().optional().default(DEFAULT_TEXT_MODEL),
+    model: z.string().optional().default(DEFAULT_TEXT_MODEL).meta({
+        description:
+            "AI model for text generation. See /v1/models for full list.",
+    }),
     modalities: z.array(z.enum(["text", "audio"])).optional(),
     audio: z
         .object({
@@ -304,7 +310,7 @@ export const CreateChatCompletionRequestSchema = z.object({
     seed: z
         .number()
         .int()
-        .min(0)
+        .min(-1)
         .max(Number.MAX_SAFE_INTEGER)
         .nullable()
         .optional(),
@@ -314,7 +320,9 @@ export const CreateChatCompletionRequestSchema = z.object({
     stream: z.boolean().nullable().optional().default(false),
     stream_options: ChatCompletionStreamOptionsSchema,
     thinking: ThinkingSchema,
-    reasoning_effort: z.enum(["low", "medium", "high"]).optional(),
+    reasoning_effort: z
+        .enum(["none", "minimal", "low", "medium", "high", "xhigh"])
+        .optional(),
     thinking_budget: z.number().int().min(0).optional(),
     temperature: z.number().min(0).max(2).nullable().optional().default(1),
     top_p: z.number().min(0).max(1).nullable().optional().default(1),
@@ -337,8 +345,13 @@ export const CreateChatCompletionRequestSchema = z.object({
 
 const ChatCompletionMessageContentBlockSchema = z.union([
     ChatCompletionRequestMessageContentPartTextSchema,
+    ChatCompletionRequestMessageContentPartImageSchema,
     ChatCompletionMessageContentPartThinkingSchema,
     ChatCompletionMessageContentPartRedactedThinkingSchema,
+    // Allow any other content types for provider-specific extensions (video, audio, file, etc.)
+    z
+        .object({ type: z.string() })
+        .passthrough(),
 ]);
 
 const ChatCompletionResponseMessageSchema = z.object({
@@ -383,42 +396,41 @@ const ChatCompletionChoiceLogprobsSchema = z
     })
     .nullable();
 
-export const CompletionUsageSchema = z.object({
-    completion_tokens: z.number().int().nonnegative(),
-    completion_tokens_details: z
-        .object({
-            accepted_prediction_tokens: z
-                .number()
-                .int()
-                .nonnegative()
-                .optional(),
-            audio_tokens: z.number().int().nonnegative().optional(),
-            reasoning_tokens: z.number().int().nonnegative().optional(),
-            rejected_prediction_tokens: z
-                .number()
-                .int()
-                .nonnegative()
-                .optional(),
-        })
-        .nullish(),
-    prompt_tokens: z.number().int().nonnegative(),
-    prompt_tokens_details: z
-        .object({
-            audio_tokens: z.number().int().nonnegative().optional(),
-            cached_tokens: z.number().int().nonnegative().optional(),
-        })
-        .nullish(),
-    total_tokens: z.number().int().nonnegative(),
-});
+export const CompletionUsageSchema = z
+    .object({
+        completion_tokens: z.number().int().nonnegative(),
+        completion_tokens_details: z
+            .object({
+                accepted_prediction_tokens: z
+                    .number()
+                    .int()
+                    .nonnegative()
+                    .optional(),
+                audio_tokens: z.number().int().nonnegative().optional(),
+                reasoning_tokens: z.number().int().nonnegative().optional(),
+                rejected_prediction_tokens: z
+                    .number()
+                    .int()
+                    .nonnegative()
+                    .optional(),
+            })
+            .nullish(),
+        prompt_tokens: z.number().int().nonnegative(),
+        prompt_tokens_details: z
+            .object({
+                audio_tokens: z.number().int().nonnegative().optional(),
+                cached_tokens: z.number().int().nonnegative().optional(),
+            })
+            .nullish(),
+        total_tokens: z.number().int().nonnegative(),
+    })
+    .meta({ $id: "CompletionUsage" });
 
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 
-export const ContentFilterSeveritySchema = z.enum([
-    "safe",
-    "low",
-    "medium",
-    "high",
-]);
+export const ContentFilterSeveritySchema = z
+    .enum(["safe", "low", "medium", "high"])
+    .meta({ $id: "ContentFilterSeverity" });
 
 export type ContentFilterSeverity = z.infer<typeof ContentFilterSeveritySchema>;
 
@@ -453,7 +465,8 @@ export const ContentFilterResultSchema = z
             detected: z.boolean(),
         }),
     })
-    .partial();
+    .partial()
+    .meta({ $id: "ContentFilterResult" });
 
 export type ContentFilterResult = z.infer<typeof ContentFilterResultSchema>;
 
@@ -484,7 +497,7 @@ export const CreateChatCompletionResponseSchema = z.object({
     model: z.string(),
     system_fingerprint: z.string().nullish(),
     object: z.literal("chat.completion"),
-    usage: CompletionUsageSchema,
+    usage: CompletionUsageSchema.optional(),
     user_tier: UserTierSchema.optional(),
     citations: z.array(z.string()).optional(), // Perplexity citations
 });
@@ -544,26 +557,134 @@ export const CreateChatCompletionStreamResponseSchema = z.object({
         .optional(),
 });
 
-const ModelDescriptionSchema = z
+const OpenAIModelSchema = z
     .object({
-        name: z.string(),
-        description: z.string(),
-        tier: z.enum(["anonymous", "seed", "flower", "nectar"]),
-        community: z.boolean(),
-        aliases: z.array(z.string()).optional(),
-        input_modalities: z.array(z.enum(["text", "image", "audio"])),
-        output_modalities: z.array(z.enum(["text", "image", "audio"])),
-        tools: z.boolean(),
-        vision: z.boolean(),
-        audio: z.boolean(),
-        maxInputChars: z.number().optional(),
+        id: z.string(),
+        object: z.literal("model"),
+        created: z.number(),
+        input_modalities: z.array(z.string()).optional(),
+        output_modalities: z.array(z.string()).optional(),
+        supported_endpoints: z.array(z.string()).optional(),
+        tools: z.boolean().optional(),
         reasoning: z.boolean().optional(),
-        voices: z.array(z.string()).optional(),
-        uncensored: z.boolean().optional(),
-        supportsSystemMessages: z.boolean().optional(),
+        context_length: z.number().optional(),
     })
-    .meta({ description: "Model description and capabilities" });
+    .meta({
+        description: "OpenAI-compatible model object with capability metadata",
+    });
 
-export const GetModelsResponseSchema = z.array(ModelDescriptionSchema).meta({
-    description: "Array of model descriptions for each available model.",
+export const GetModelsResponseSchema = z
+    .object({
+        object: z.literal("list"),
+        data: z.array(OpenAIModelSchema),
+    })
+    .meta({
+        description: "OpenAI-compatible list of available models.",
+    });
+
+// OpenAI Images API Schemas
+
+// Shared fields between image generation and editing requests
+const imageModelField = z.string().optional().default("flux").meta({
+    description: "The model to use for image generation",
 });
+const imageNField = z
+    .number()
+    .int()
+    .min(1)
+    .max(1)
+    .optional()
+    .default(1)
+    .meta({ description: "Number of images to generate (currently max 1)" });
+const imageSizeField = z.string().optional().default("1024x1024").meta({
+    description: "Image size as WIDTHxHEIGHT (e.g., 1024x1024, 512x512)",
+});
+const imageQualityField = z
+    .enum(["standard", "hd", "low", "medium", "high"])
+    .optional()
+    .default("medium")
+    .meta({
+        description:
+            "Image quality. OpenAI 'standard'/'hd' mapped to Pollinations equivalents",
+    });
+
+export const CreateImageRequestSchema = z
+    .object({
+        prompt: z.string().min(1).max(32000).meta({
+            description: "A text description of the desired image(s)",
+        }),
+        model: imageModelField,
+        n: imageNField,
+        size: imageSizeField,
+        quality: imageQualityField,
+        response_format: z
+            .enum(["url", "b64_json"])
+            .optional()
+            .default("b64_json")
+            .meta({
+                description:
+                    'Return format. "url" returns a pollinations.ai URL, "b64_json" returns base64-encoded image data',
+            }),
+        user: z.string().optional().meta({
+            description: "End-user identifier for abuse tracking",
+        }),
+        image: z
+            .union([z.string(), z.array(z.string())])
+            .optional()
+            .meta({
+                description:
+                    "Reference image URL(s) for image-to-image generation (Pollinations extension)",
+            }),
+    })
+    .passthrough() // Allow Pollinations extensions: seed, nologo, enhance, safe, etc.
+    .meta({ $id: "CreateImageRequest" });
+
+export type CreateImageRequest = z.infer<typeof CreateImageRequestSchema>;
+
+const ImageDataSchema = z.object({
+    url: z.string().optional(),
+    b64_json: z.string().optional(),
+    revised_prompt: z.string().optional(),
+});
+
+export const CreateImageResponseSchema = z
+    .object({
+        created: z.number().int(),
+        data: z.array(ImageDataSchema),
+    })
+    .meta({ $id: "CreateImageResponse" });
+
+// Schema for JSON-based image edit requests
+// For multipart/form-data requests, parsing is done manually in the route handler
+export const CreateImageEditRequestSchema = z
+    .object({
+        prompt: z.string().min(1).max(32000).meta({
+            description: "A text description of the desired edit",
+        }),
+        image: z
+            .union([
+                z.string().meta({ description: "Image URL" }),
+                z.array(
+                    z.object({
+                        image_url: z.string().meta({
+                            description:
+                                "URL or base64 data URI of the source image",
+                        }),
+                    }),
+                ),
+            ])
+            .meta({
+                description:
+                    "Source image(s). A URL string, or an array of {image_url} objects (OpenAI format)",
+            }),
+        model: imageModelField,
+        n: imageNField,
+        size: imageSizeField,
+        quality: imageQualityField,
+    })
+    .passthrough()
+    .meta({ $id: "CreateImageEditRequest" });
+
+export type CreateImageEditRequest = z.infer<
+    typeof CreateImageEditRequestSchema
+>;

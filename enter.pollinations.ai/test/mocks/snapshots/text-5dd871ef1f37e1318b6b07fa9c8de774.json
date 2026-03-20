@@ -61,12 +61,12 @@
     "headers": {
       "access-control-allow-origin": "*",
       "connection": "keep-alive",
-      "content-length": "1149",
+      "content-length": "797",
       "content-type": "application/json; charset=utf-8",
-      "date": "Thu, 11 Dec 2025 16:48:54 GMT",
-      "etag": "W/\"47d-ky/JKKKFpQyr4kiMKIh5KyxMtYQ\"",
+      "date": "Mon, 05 Jan 2026 14:42:29 GMT",
+      "etag": "W/\"31d-lBWBR/uA5sP3W0X/fa2DOPJNYRo\"",
       "keep-alive": "timeout=5",
-      "x-model-used": "DeepSeek-V3.1",
+      "x-model-used": "deepseek-v3.2",
       "x-powered-by": "Express",
       "x-usage-completion-text-tokens": "41",
       "x-usage-prompt-text-tokens": "475",
@@ -75,17 +75,17 @@
     "body": {
       "type": "json",
       "data": {
-        "id": "pllns_423487d9c0ddcc0f7a48714023fe05b0",
-        "model": "DeepSeek-V3.1",
+        "id": "pllns_864c47427ef0798d10f96e9477f5e6d4",
+        "model": "deepseek-v3.2",
         "choices": [
           {
             "index": 0,
             "message": {
               "role": "assistant",
-              "content": "I'll use the calculator tool to compute 5 + 3",
+              "content": "",
               "tool_calls": [
                 {
-                  "id": "call_twEsEMyvRaOa-fLOjmSHqA",
+                  "id": "call_c961fc81329e4348be8fc452",
                   "index": 0,
                   "type": "function",
                   "function": {
@@ -95,33 +95,8 @@
                 }
               ]
             },
-            "finish_reason": "tool_call",
-            "content_filter_results": {
-              "violence": {
-                "filtered": false,
-                "severity": "safe"
-              },
-              "sexual": {
-                "filtered": false,
-                "severity": "safe"
-              },
-              "hate": {
-                "filtered": false,
-                "severity": "safe"
-              },
-              "self_harm": {
-                "filtered": false,
-                "severity": "safe"
-              },
-              "protected_material_code": {
-                "filtered": false,
-                "detected": false
-              },
-              "protected_material_text": {
-                "filtered": false,
-                "detected": false
-              }
-            }
+            "finish_reason": "tool_calls",
+            "content_filter_results": {}
           }
         ],
         "usage": {
@@ -129,7 +104,7 @@
           "completion_tokens": 41,
           "total_tokens": 516
         },
-        "created": 1765471679,
+        "created": 1767624148,
         "object": "chat.completion",
         "prompt_filter_results": [
           {
