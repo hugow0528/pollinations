@@ -21,7 +21,7 @@ export const GenerateImageRequestQueryParamsSchema = z.object({
             description:
                 "Model to use. **Image:** flux, zimage, gptimage, kontext, seedream5, nanobanana, nanobanana-pro, klein, imagen-4, grok-imagine. **Video:** veo, seedance, seedance-pro, wan, ltx-2, grok-video. See /image/models for full list.",
         }),
-    width: z.coerce.number().int().nonnegative().optional().default(1024).meta({
+    width: z.coerce.number().int().nonnegative().max(4096).optional().default(1024).meta({
         description:
             "Width in pixels. For images, exact pixels. For video models, mapped to nearest resolution tier (480p/720p/1080p).",
     }),
@@ -29,6 +29,7 @@ export const GenerateImageRequestQueryParamsSchema = z.object({
         .number()
         .int()
         .nonnegative()
+        .max(4096)
         .optional()
         .default(1024)
         .meta({
@@ -52,6 +53,7 @@ export const GenerateImageRequestQueryParamsSchema = z.object({
     }),
     negative_prompt: z.coerce
         .string()
+        .max(1000)
         .optional()
         .default("worst quality, blurry")
         .meta({
