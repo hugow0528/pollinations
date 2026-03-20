@@ -505,7 +505,7 @@ export const proxyRoutes = new Hono<Env>()
         validator(
             "param",
             z.object({
-                prompt: z.string().min(1).meta({
+                prompt: z.string().min(1).max(100_000).meta({
                     description: "Text prompt for generation",
                     example: "Write a haiku about coding",
                 }),
@@ -597,7 +597,7 @@ export const proxyRoutes = new Hono<Env>()
         validator(
             "param",
             z.object({
-                prompt: z.string().min(1).meta({
+                prompt: z.string().min(1).max(10_000).meta({
                     description: "Text description of the image to generate",
                     example: "a beautiful sunset over mountains",
                 }),
@@ -641,7 +641,7 @@ export const proxyRoutes = new Hono<Env>()
         validator(
             "param",
             z.object({
-                prompt: z.string().min(1).meta({
+                prompt: z.string().min(1).max(10_000).meta({
                     description: "Text description of the video to generate",
                     example: "a sunset timelapse over the ocean",
                 }),
@@ -681,7 +681,7 @@ export const proxyRoutes = new Hono<Env>()
         validator(
             "param",
             z.object({
-                text: z.string().min(1).meta({
+                text: z.string().min(1).max(5_000).meta({
                     description:
                         "Text to convert to speech, or a music description when model=elevenmusic",
                     example: "Hello, welcome to Pollinations!",

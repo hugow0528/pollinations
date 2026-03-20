@@ -90,7 +90,7 @@ const CacheControlSchema = z
 
 const ChatCompletionRequestMessageContentPartTextSchema = z.object({
     type: z.literal("text"),
-    text: z.string(),
+    text: z.string().max(100_000),
     cache_control: CacheControlSchema,
 });
 
@@ -143,7 +143,7 @@ const ChatCompletionMessageContentPartRedactedThinkingSchema = z.object({
 
 const ChatCompletionRequestSystemMessageSchema = z.object({
     content: z.union([
-        z.string(),
+        z.string().max(100_000),
         z.array(ChatCompletionRequestMessageContentPartSchema).min(1),
     ]),
     role: z.literal("system"),
@@ -153,7 +153,7 @@ const ChatCompletionRequestSystemMessageSchema = z.object({
 
 const ChatCompletionRequestDeveloperMessageSchema = z.object({
     content: z.union([
-        z.string(),
+        z.string().max(100_000),
         z.array(ChatCompletionRequestMessageContentPartSchema).min(1),
     ]),
     role: z.literal("developer"),
@@ -163,7 +163,7 @@ const ChatCompletionRequestDeveloperMessageSchema = z.object({
 
 const ChatCompletionRequestUserMessageSchema = z.object({
     content: z.union([
-        z.string(),
+        z.string().max(100_000),
         z.array(ChatCompletionRequestMessageContentPartSchema).min(1),
     ]),
     role: z.literal("user"),
@@ -186,7 +186,7 @@ const ChatCompletionMessageToolCallsSchema = z.array(
 const ChatCompletionRequestAssistantMessageSchema = z.object({
     content: z
         .union([
-            z.string(),
+            z.string().max(100_000),
             z.array(ChatCompletionRequestMessageContentPartSchema).min(1),
         ])
         .nullable()
@@ -208,7 +208,7 @@ const ChatCompletionRequestToolMessageSchema = z.object({
     role: z.literal("tool"),
     content: z
         .union([
-            z.string(),
+            z.string().max(100_000),
             z.array(ChatCompletionRequestMessageContentPartSchema).min(1),
         ])
         .nullable(),
@@ -218,7 +218,7 @@ const ChatCompletionRequestToolMessageSchema = z.object({
 
 const ChatCompletionRequestFunctionMessageSchema = z.object({
     role: z.literal("function"),
-    content: z.string().nullable(),
+    content: z.string().max(100_000).nullable(),
     name: z.string(),
 });
 
@@ -271,7 +271,7 @@ const ThinkingSchema = z
     .optional();
 
 export const CreateChatCompletionRequestSchema = z.object({
-    messages: z.array(ChatCompletionRequestMessageSchema),
+    messages: z.array(ChatCompletionRequestMessageSchema).min(1).max(500),
     model: z.string().optional().default(DEFAULT_TEXT_MODEL).meta({
         description:
             "AI model for text generation. See /v1/models for full list.",
@@ -298,7 +298,7 @@ export const CreateChatCompletionRequestSchema = z.object({
         .default(null),
     logprobs: z.boolean().nullable().optional().default(false),
     top_logprobs: z.number().int().min(0).max(20).nullable().optional(),
-    max_tokens: z.number().int().min(0).nullable().optional(),
+    max_tokens: z.number().int().min(0).max(100_000).nullable().optional(),
     presence_penalty: z
         .number()
         .min(-2)
@@ -323,10 +323,10 @@ export const CreateChatCompletionRequestSchema = z.object({
     reasoning_effort: z
         .enum(["none", "minimal", "low", "medium", "high", "xhigh"])
         .optional(),
-    thinking_budget: z.number().int().min(0).optional(),
+    thinking_budget: z.number().int().min(0).max(100_000).optional(),
     temperature: z.number().min(0).max(2).nullable().optional().default(1),
     top_p: z.number().min(0).max(1).nullable().optional().default(1),
-    tools: z.array(ChatCompletionToolSchema).optional(),
+    tools: z.array(ChatCompletionToolSchema).max(128).optional(),
     tool_choice: ChatCompletionToolChoiceOptionSchema.optional(),
     parallel_tool_calls: z.boolean().optional().default(true),
     user: z.string().optional(),

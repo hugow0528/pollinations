@@ -18,7 +18,7 @@ export const GenerateTextRequestQueryParamsSchema = z.object({
     seed: z.coerce.number().int().min(-1).optional().default(0).meta({
         description: "Seed for reproducible results. Use -1 for random.",
     }),
-    system: z.string().optional().meta({
+    system: z.string().max(100_000).optional().meta({
         description:
             "System prompt to set the model's behavior and context. Acts as initial instructions before the user prompt.",
     }),
