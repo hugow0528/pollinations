@@ -32,3 +32,16 @@ export function withTimeoutSignal<T>(
 export async function sleep(ms: number) {
     await new Promise<void>((resolve, _) => setTimeout(resolve, ms));
 }
+
+/**
+ * Safely extracts a string message from an unknown thrown value.
+ * Handles Error objects, strings, and other primitives.
+ *
+ * @param error - Any caught value
+ * @returns A string representation of the error
+ */
+export function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    return String(error);
+}

@@ -121,7 +121,7 @@ async function fetchImageAsBase64(url: string): Promise<string> {
             name?: string;
             code?: string;
         };
-        let errorMessage = `Failed to fetch image from ${url}: ${error.message}`;
+        let errorMessage = `Failed to fetch image from ${url}: ${error.message ?? "Unknown error"}`;
 
         if (error.name === "AbortError") {
             errorMessage = `Image fetch timeout for ${url}: The server took too long to respond (>30 seconds). Please try a faster image host.`;
@@ -131,7 +131,9 @@ async function fetchImageAsBase64(url: string): Promise<string> {
             errorMessage = `Cannot connect to image server ${url}: Connection refused. The server may be down.`;
         }
 
-        errorLog(`Failed to fetch image ${url}: ${error.message}`);
+        errorLog(
+            `Failed to fetch image ${url}: ${error.message ?? "Unknown error"}`,
+        );
         throw new ImageFetchError(errorMessage, 400, url);
     }
 }
