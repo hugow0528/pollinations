@@ -3,6 +3,7 @@ import type { ServiceId } from "@shared/registry/registry.ts";
 import { getServiceDefinition } from "@shared/registry/registry.ts";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { apikey as apikeyTable } from "@/db/schema/better-auth.ts";
+import { getErrorMessage } from "@/error.ts";
 import {
     atomicDeductApiKeyBalance,
     atomicDeductPaidBalance,
@@ -72,7 +73,7 @@ async function deductApiKeyBalance(
     } catch (error) {
         log.error("Failed to decrement API key budget for {keyId}: {error}", {
             keyId: apiKeyId,
-            error: error instanceof Error ? error.message : error,
+            error: getErrorMessage(error),
         });
     }
 }
@@ -123,7 +124,7 @@ async function deductUserBalance(
     } catch (error) {
         log.error("Failed to decrement user balance for {userId}: {error}", {
             userId,
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
         });
     }
 }

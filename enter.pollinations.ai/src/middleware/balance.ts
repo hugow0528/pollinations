@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { user as userTable } from "@/db/schema/better-auth.ts";
+import { getErrorMessage } from "@/error.ts";
 import type { AuthVariables } from "@/middleware/auth.ts";
 import type { LoggerVariables } from "@/middleware/logger.ts";
 
@@ -91,7 +92,7 @@ export const balance = createMiddleware<BalanceEnv>(async (c, next) => {
         } catch (error) {
             log.error("Failed to get balance for user {userId}", {
                 userId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             throw new HTTPException(503, {
                 message: "Unable to verify balance. Please try again shortly.",
