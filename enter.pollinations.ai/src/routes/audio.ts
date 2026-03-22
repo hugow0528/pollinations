@@ -15,6 +15,7 @@ import { describeRoute } from "hono-openapi";
 import { z } from "zod";
 import {
     getDefaultErrorMessage,
+    getErrorMessage,
     remapUpstreamStatus,
     UpstreamError,
 } from "@/error.ts";
@@ -589,11 +590,11 @@ export async function generateSunoMusic(opts: {
             if (e instanceof UpstreamError) throw e;
             log.warn("Suno {model} failed: {error}", {
                 model,
-                error: (e as Error).message,
+                error: getErrorMessage(e),
             });
             if (model === models[models.length - 1]) {
                 throw new UpstreamError(500 as ContentfulStatusCode, {
-                    message: `Suno music generation failed: ${(e as Error).message}`,
+                    message: `Suno music generation failed: ${getErrorMessage(e)}`,
                 });
             }
         }

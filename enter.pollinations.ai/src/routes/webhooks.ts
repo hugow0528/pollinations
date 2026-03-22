@@ -10,6 +10,7 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { getErrorMessage } from "@/error.ts";
 import { user as userTable } from "../db/schema/better-auth.ts";
 import type { Env } from "../env.ts";
 
@@ -266,8 +267,7 @@ async function handlePackBenefitGrant(
                 userId: externalId,
                 units,
                 orderId,
-                errorMessage:
-                    error instanceof Error ? error.message : String(error),
+                errorMessage: getErrorMessage(error),
                 errorStack: error instanceof Error ? error.stack : undefined,
             },
         );

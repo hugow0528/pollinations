@@ -210,6 +210,15 @@ export const KNOWN_ERROR_STATUS_CODES = [
 
 export type ErrorStatusCode = (typeof KNOWN_ERROR_STATUS_CODES)[number];
 
+/**
+ * Safely extracts a string message from an unknown catch value.
+ * Avoids unsafe `(e as Error).message` casts.
+ */
+export function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+}
+
 export function getDefaultErrorMessage(status: number): string {
     const messages: Record<number, string> = {
         400: "Something was wrong with the input data, check the details for more info.",

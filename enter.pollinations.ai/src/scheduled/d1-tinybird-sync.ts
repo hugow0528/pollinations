@@ -12,6 +12,8 @@
  * but present) and the next run will clean up.
  */
 
+import { getErrorMessage } from "@/error.ts";
+
 const TINYBIRD_BASE_URL = "https://api.europe-west2.gcp.tinybird.co";
 const MAX_RETRIES = 3;
 const CHUNK_SIZE = 5000;
@@ -191,7 +193,7 @@ export async function runD1TinybirdSync(
                 status: "ok",
             });
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = getErrorMessage(err);
             console.error(
                 `D1→Tinybird sync: ${table.datasource} — error:`,
                 message,

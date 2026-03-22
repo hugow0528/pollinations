@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { getErrorMessage } from "@/error.ts";
 import { sendTierEventToTinybird } from "@/events.ts";
 import { runD1TinybirdSync } from "@/scheduled/d1-tinybird-sync.ts";
 import {
@@ -144,7 +145,7 @@ async function sendBulkTierRefillEvents(
         }
     } catch (err) {
         logger.error("TINYBIRD_TIER_FAIL: error={error}", {
-            error: err instanceof Error ? err.message : String(err),
+            error: getErrorMessage(err),
         });
     }
 }
