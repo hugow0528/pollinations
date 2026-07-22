@@ -19,7 +19,7 @@
     "license": "ISC",
     "type": "module",
     "dependencies": {
-        "@hono/node-server": "^1.19.9",
+        "@hono/node-server": "^2.0.10",
         "debug": "^4.4.1",
         "dotenv": "^16.0.3",
         "hono": "^4.11.4",
