@@ -22,7 +22,7 @@
         "@hono/node-server": "^1.19.9",
         "debug": "^4.4.1",
         "dotenv": "^16.0.3",
-        "hono": "^4.11.4",
+        "hono": "^4.13.0",
         "jsonwebtoken": "^9.0.2",
         "node-fetch": "^3.3.2",
         "tsx": "^4.20.3",
