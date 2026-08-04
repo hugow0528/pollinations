@@ -14,7 +14,7 @@
     "dependencies": {
         "@cloudflare/kv-asset-handler": "^0.4.1",
         "date-fns": "^3.0.0",
-        "hono": "^4.0.0",
+        "hono": "^4.12.34",
         "lucide-react": "^0.294.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
