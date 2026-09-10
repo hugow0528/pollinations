@@ -11,6 +11,6 @@
     "generate:all": "node generate-assets.js --app=all"
   },
   "dependencies": {
-    "sharp": "^0.33.5"
+    "sharp": "^0.35.4"
   }
 }
