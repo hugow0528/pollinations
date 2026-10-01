@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@devvit/public-api": "0.12.6",
-    "axios": "^1.13.2",
+    "axios": "^1.20.0",
     "fs": "^0.0.1-security",
     "path": "^0.12.7"
   },
